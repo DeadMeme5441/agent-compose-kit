@@ -59,3 +59,16 @@ def test_openapi_loader_with_inline_spec(tmp_path: Path):
     toolset = load_tool_entry(entry, base_dir=tmp_path)
     assert "OpenAPIToolset" in type(toolset).__name__
 
+
+def test_openapi_loader_with_path_spec(tmp_path: Path):
+    if not _has("google.adk.tools.openapi_tool.openapi_spec_parser.openapi_toolset"):
+        pytest.skip("OpenAPI toolset not available")
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text("openapi: '3.0.0'\ninfo: {title: t, version: '1.0'}\npaths: {}\n")
+    entry = {
+        "type": "openapi",
+        "spec": {"path": str(spec_path)},
+        # spec_type can be omitted; inferred from extension
+    }
+    toolset = load_tool_entry(entry, base_dir=tmp_path)
+    assert "OpenAPIToolset" in type(toolset).__name__

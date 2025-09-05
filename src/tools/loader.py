@@ -131,8 +131,8 @@ def load_tool_entry(entry: Any, *, base_dir: Path, toolsets_map: Optional[Dict[s
         elif spec.get("path"):
             p = Path(base_dir) / str(spec["path"])
             spec_str = p.read_text(encoding="utf-8")
-            if spec_type not in ("json", "yaml"):
-                # infer from extension
+            # If caller did not explicitly provide spec_type, infer from extension
+            if "spec_type" not in entry:
                 spec_type = "yaml" if p.suffix.lower() in (".yaml", ".yml") else "json"
         elif spec.get("url"):
             # avoid network fetch for now; require path or inline for portability
@@ -158,4 +158,3 @@ def load_tool_list(entries: List[Any], *, base_dir: Path, toolsets_map: Optional
     for e in entries or []:
         tools.append(load_tool_entry(e, base_dir=base_dir, toolsets_map=toolsets_map))
     return tools
-
