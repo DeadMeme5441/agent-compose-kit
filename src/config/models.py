@@ -95,6 +95,8 @@ class AppConfig(BaseModel):
     workflow: Optional[WorkflowConfig] = None
     # Defaults for LiteLLM providers, keyed by provider name (e.g., openai, ollama_chat)
     model_providers: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    # Optional shared toolsets that agents can reference by name via {use: <key>}
+    toolsets: Dict[str, Any] = Field(default_factory=dict)
     agents: List[AgentConfig] = Field(default_factory=list)
     groups: List[GroupConfig] = Field(default_factory=list)
     mcp: List[MCPServerConfig] = Field(default_factory=list)

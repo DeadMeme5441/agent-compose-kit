@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Mapping
 
 from ..config.models import AgentConfig
+from ..tools.loader import load_tool_list, load_toolsets_map
+from pathlib import Path
 
 
 def _resolve_model(model_spec: Any, provider_defaults: Mapping[str, Dict[str, Any]] | None = None):
@@ -36,40 +38,25 @@ def _resolve_model(model_spec: Any, provider_defaults: Mapping[str, Dict[str, An
     return model_spec
 
 
-def build_agents(agent_cfgs: List[AgentConfig], *, provider_defaults: Mapping[str, Dict[str, Any]] | None = None):
+def build_agents(
+    agent_cfgs: List[AgentConfig],
+    *,
+    provider_defaults: Mapping[str, Dict[str, Any]] | None = None,
+    base_dir: str | None = None,
+    shared_toolsets: Mapping[str, Any] | None = None,
+):
     # Build concrete LlmAgent instances from configs
     agents: Dict[str, object] = {}
     from google.adk.agents import LlmAgent  # type: ignore
-    from google.adk.tools import FunctionTool  # type: ignore
-
-    def _load_tool(entry: Any):
-        # function tools
-        if isinstance(entry, dict) and entry.get("type") == "function":
-            ref = entry.get("ref")
-            if not ref or ":" not in ref:
-                raise ValueError(f"Invalid function tool ref: {ref}")
-            mod_name, func_name = ref.split(":", 1)
-            mod = __import__(mod_name, fromlist=[func_name])
-            func = getattr(mod, func_name)
-            name = entry.get("name")
-            tool = FunctionTool(func=func)
-            if name:
-                try:
-                    setattr(tool, "name", name)
-                except Exception:
-                    pass
-            return tool
-        # strings can be resolved later to known builtins (future)
-        return entry
+    base = Path(base_dir or ".").resolve()
+    toolsets_map = load_toolsets_map(shared_toolsets or {}, base_dir=base)
 
     # First pass: create shells without sub_agents to allow references
     temp: Dict[str, Any] = {}
     pending_tools: Dict[str, List[Any]] = {}
     for cfg in agent_cfgs:
         model_obj = _resolve_model(cfg.model, provider_defaults)
-        tools = []
-        for t in cfg.tools or []:
-            tools.append(_load_tool(t))
+        tools = load_tool_list(cfg.tools or [], base_dir=base, toolsets_map=toolsets_map)
         agent = LlmAgent(name=cfg.name, model=model_obj, instruction=cfg.instruction or "", tools=tools)
         temp[cfg.name] = agent
         pending_tools[cfg.name] = tools
