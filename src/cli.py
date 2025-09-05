@@ -5,7 +5,7 @@ from typing import Optional
 
 import click
 
-from .runtime.supervisor import build_plan, build_runner_from_yaml
+from .runtime.supervisor import build_plan, build_runner_from_yaml, build_run_config
 from .config.models import load_config_file, write_example_config
 
 
@@ -59,6 +59,9 @@ def run(config: Path, user_id: str, session_id: Optional[str]) -> None:
         click.echo("google-generativeai missing; install google-adk extras.", err=True)
         raise SystemExit(1) from e
 
+    # Build run config once
+    rc = build_run_config(load_config_file(config))
+
     async def _loop() -> None:
         from google.adk.utils.context_utils import Aclosing  # type: ignore
 
@@ -70,7 +73,7 @@ def run(config: Path, user_id: str, session_id: Optional[str]) -> None:
                 break
             content = types.Content(role="user", parts=[types.Part(text=query)])
             async with Aclosing(
-                runner.run_async(user_id=session.user_id, session_id=session.id, new_message=content)
+                runner.run_async(user_id=session.user_id, session_id=session.id, new_message=content, run_config=rc)
             ) as agen:
                 async for event in agen:
                     if event.content and event.content.parts:
@@ -88,3 +91,49 @@ def run(config: Path, user_id: str, session_id: Optional[str]) -> None:
             asyncio.run(runner.close())
         except Exception:
             pass
+
+
+@app.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--dot", is_flag=True, help="Output Graphviz DOT instead of ASCII")
+def graph(config: Path, dot: bool) -> None:
+    """Print a simple graph of agents and workflow composition."""
+    cfg = load_config_file(config)
+    agent_names = [a.name for a in cfg.agents]
+    edges = []
+    # sub_agent edges
+    subs = {a.name: a.sub_agents for a in cfg.agents}
+    for a, children in subs.items():
+        for c in children:
+            edges.append((a, c))
+    # workflow edges
+    if cfg.workflow and cfg.workflow.nodes:
+        n = cfg.workflow.nodes
+        if cfg.workflow.type == "sequential":
+            for i in range(len(n) - 1):
+                edges.append((n[i], n[i + 1]))
+        elif cfg.workflow.type == "parallel":
+            # star from first
+            for i in range(1, len(n)):
+                edges.append((n[0], n[i]))
+        elif cfg.workflow.type == "loop":
+            for i in range(len(n)):
+                edges.append((n[i], n[(i + 1) % len(n)]))
+
+    if dot:
+        click.echo("digraph flow {")
+        for a in agent_names:
+            click.echo(f'  "{a}";')
+        for s, d in edges:
+            click.echo(f'  "{s}" -> "{d}";')
+        click.echo("}")
+        return
+
+    # ASCII
+    seen = set()
+    for s, d in edges:
+        click.echo(f"{s} -> {d}")
+        seen.add(s); seen.add(d)
+    missing = [a for a in agent_names if a not in seen]
+    if missing:
+        click.echo(f"(isolated) {' '.join(missing)}")

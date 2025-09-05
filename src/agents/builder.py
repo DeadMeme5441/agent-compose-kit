@@ -40,13 +40,33 @@ def build_agents(agent_cfgs: List[AgentConfig], *, provider_defaults: Mapping[st
     # Build concrete LlmAgent instances from configs
     agents: Dict[str, object] = {}
     from google.adk.agents import LlmAgent  # type: ignore
+    from google.adk.tools import FunctionTool  # type: ignore
+
+    def _load_tool(entry: Any):
+        # function tools
+        if isinstance(entry, dict) and entry.get("type") == "function":
+            ref = entry.get("ref")
+            if not ref or ":" not in ref:
+                raise ValueError(f"Invalid function tool ref: {ref}")
+            mod_name, func_name = ref.split(":", 1)
+            mod = __import__(mod_name, fromlist=[func_name])
+            func = getattr(mod, func_name)
+            name = entry.get("name")
+            return FunctionTool(func=func, name=name)
+        # strings can be resolved later to known builtins (future)
+        return entry
 
     # First pass: create shells without sub_agents to allow references
-    temp = {}
+    temp: Dict[str, Any] = {}
+    pending_tools: Dict[str, List[Any]] = {}
     for cfg in agent_cfgs:
         model_obj = _resolve_model(cfg.model, provider_defaults)
-        agent = LlmAgent(name=cfg.name, model=model_obj, instruction=cfg.instruction or "")
+        tools = []
+        for t in cfg.tools or []:
+            tools.append(_load_tool(t))
+        agent = LlmAgent(name=cfg.name, model=model_obj, instruction=cfg.instruction or "", tools=tools)
         temp[cfg.name] = agent
+        pending_tools[cfg.name] = tools
 
     # Second pass: wire sub_agents
     for cfg in agent_cfgs:

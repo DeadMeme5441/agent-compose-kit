@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..config.models import ArtifactServiceConfig, SessionServiceConfig
+from ..config.models import ArtifactServiceConfig, MemoryServiceConfig, SessionServiceConfig
 
 
 def build_session_service(cfg: SessionServiceConfig):
@@ -49,3 +49,25 @@ def build_artifact_service(cfg: ArtifactServiceConfig):
         return GcsArtifactService(bucket_name=cfg.bucket_name or "adk-artifacts")
     raise NotImplementedError(f"Unsupported artifact service type: {t}")
 
+
+def build_memory_service(cfg: MemoryServiceConfig | None):
+    if cfg is None or cfg.type is None:
+        return None
+    if cfg.type == "in_memory":
+        from google.adk.memory import InMemoryMemoryService  # type: ignore
+
+        return InMemoryMemoryService()
+    if cfg.type == "vertex_ai":
+        from google.adk.memory import VertexAiMemoryBankService  # type: ignore
+
+        # Expected params: project, location, agent_engine_id
+        params: dict[str, Any] = dict(cfg.params or {})
+        project = params.get("project")
+        location = params.get("location")
+        agent_engine_id = params.get("agent_engine_id")
+        return VertexAiMemoryBankService(
+            project=project,
+            location=location,
+            agent_engine_id=agent_engine_id,
+        )
+    raise NotImplementedError(f"Unsupported memory service type: {cfg.type}")

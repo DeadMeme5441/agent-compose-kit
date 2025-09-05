@@ -39,12 +39,23 @@ Architecture layers:
 - Runtime: Runner manager (one per flow), streaming loop, session control, and run history plumbing.
 - Registry: file-based registry (YAML + metadata) with optional artifact-backed storage (S3/LocalFolder) for sharing.
 - Copilot: “designer” agent available via CLI subcommand to propose scaffold/edits/plans; changes applied via gated write-tools.
+- Terminal UI (Textual): rich TUI with widgets (DataTable, Tree, TextArea, Inputs, Log, Command Palette) to design, visualize, and operate flows; optional `textual serve` to run in a browser.
 
 Implementation principles:
 - YAML-first, code-second; everything composable and testable.
 - Provider-agnostic model layer via LiteLLM wrapper and direct ADK string registry.
 - Minimal primitives first, grow capabilities behind stable CLI.
 - Safety-first agentic edits: explicit user approvals.
+
+### 3.1) Terminal UI with Textual (Key Decisions)
+- Framework: Textual (App/Screens/Widgets with CSS-like styling, async-friendly). Install with `textual textual-dev`.
+- Structure: one App with Screens: Dashboard, Flow Editor, Run Monitor, Logs/Artifacts, Provider/Secrets, Evaluations.
+- Widgets: Header/Footer, TabbedContent, Tree/DirectoryTree (flows & sessions), DataTable (runs, artifacts), TextArea (YAML editor with optional syntax), Input/Button, Log for streaming events.
+- Devtools: use `textual run --dev` for hot CSS reload; `textual console` for logs and prints; leverage Command Palette (Ctrl+P) for actions (open flow, run, validate, plan, save, export, etc.).
+- Web: optional `textual serve "python -m src.tui"` to run TUI in a browser for demos.
+- Theming: built-in themes for immediate polish; custom CSS in `tui/` folder.
+- Background tasks: Textual workers for long operations (validate/plan/run) to keep UI responsive.
+- Keybindings: predictable navigations (j/k, arrows), action names align with CLI verbs.
 
 
 ## 4) Detailed Implementation Plan (Phased)
@@ -79,9 +90,14 @@ Tasks:
    - Unit tests for new factories and workflow compilation.
    - Example configs for: single agent (Gemini), OpenAI via LiteLLM, Ollama, sequential flow.
 
+7) TUI bootstrap (Textual)
+   - Minimal App: header/footer, left Tree (flows/sessions), right panel (status/log), command palette actions: validate/plan/run.
+   - Wire plan/run commands to background workers; stream Runner events to a Log widget.
+
 Acceptance:
 - `uv run` can init → validate → plan → graph → run single and sequential flows for both Gemini and Ollama/OpenAI.
 - Memory service selectable and searchable by agents (basic call path).
+- `uv run --with textual --with textual-dev python -m src.tui` launches a basic TUI that validates / plans / runs flows.
 
 
 ### Phase M2 — Tools, MCP, and Copilot
@@ -108,11 +124,15 @@ Tasks:
    - Run history: maintain index (flow id/version, session ids, timestamps, user id). CLI: `runs list/show/logs`.
 5) Profiles/overlays
    - Simple overlay merge: `--profile dev|prod` to merge `configs/app.dev.yaml` onto base; or `--set key=val` inline.
+6) TUI v2 (Textual)
+   - Screens: Flow Editor with TextArea YAML + validation markers; Runs Monitor (DataTable); Artifacts browser; Providers/Secrets form.
+   - Command Palette integration for common actions; persist window state; `textual console` logging enabled.
 
 Acceptance:
 - Can attach MCP tools from a running server; can import a small OpenAPI spec and call tools.
 - Copilot can propose and apply changes to YAML with user approval.
 - Flows are versioned, listable, and exportable; run history visible.
+- TUI supports editing YAML, validating in-place, and running flows with live logs and artifact listing.
 
 
 ### Phase M3 — Dynamic Spawn, Policies, and Hardening
@@ -137,6 +157,7 @@ Tasks:
 Acceptance:
 - Agents can draft new agents/flows; registration requires approval; runs show provenance.
 - Policy violations are prevented with clear errors; logs are sanitized.
+- TUI adds spawn flows UI with policy prompts and approvals, plus evaluation views.
 
 
 ## 5) CLI Surface (Initial & Target)

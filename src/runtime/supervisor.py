@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from ..config.models import AppConfig, load_config_file
-from ..services.factory import build_artifact_service, build_session_service
+from ..services.factory import (
+    build_artifact_service,
+    build_session_service,
+    build_memory_service,
+)
 from ..agents.builder import build_agents
 
 
@@ -27,14 +31,32 @@ def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optio
     # Services
     artifact_service = build_artifact_service(cfg.artifact_service)
     session_service = build_session_service(cfg.session_service)
+    memory_service = build_memory_service(cfg.memory_service)
 
     # Agents
     agent_map = build_agents(cfg.agents, provider_defaults=cfg.model_providers)
     if not agent_map:
         raise ValueError("No agents defined in config")
-    # Choose root: first agent or first group member
-    root_name = cfg.agents[0].name
-    root_agent = agent_map[root_name]
+    # Choose root: workflow if defined, else first agent or first group member
+    root_agent = None
+    if cfg.workflow and cfg.workflow.type and cfg.workflow.nodes:
+        wf_type = cfg.workflow.type
+        nodes = [agent_map[n] for n in cfg.workflow.nodes if n in agent_map]
+        if wf_type == "sequential":
+            from google.adk.agents.sequential_agent import SequentialAgent  # type: ignore
+
+            root_agent = SequentialAgent(name="workflow", sub_agents=nodes)
+        elif wf_type == "parallel":
+            from google.adk.agents.parallel_agent import ParallelAgent  # type: ignore
+
+            root_agent = ParallelAgent(name="workflow", sub_agents=nodes)
+        elif wf_type == "loop":
+            from google.adk.agents.loop_agent import LoopAgent  # type: ignore
+
+            root_agent = LoopAgent(name="workflow", sub_agents=nodes)
+    if root_agent is None:
+        root_name = cfg.agents[0].name
+        root_agent = agent_map[root_name]
 
     from google.adk.runners import Runner  # type: ignore
 
@@ -43,6 +65,7 @@ def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optio
         agent=root_agent,  # type: ignore[arg-type]
         artifact_service=artifact_service,
         session_service=session_service,
+        memory_service=memory_service,
     )
 
     # Create or resume session
@@ -62,3 +85,25 @@ def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optio
 
     session = asyncio.run(_create())
     return runner, session
+
+
+def build_run_config(cfg: AppConfig):
+    """Construct ADK RunConfig from YAML runtime section."""
+    from google.adk.agents.run_config import RunConfig, StreamingMode  # type: ignore
+
+    rc = cfg.runtime or {}
+    # Map streaming_mode string to enum
+    mode = None
+    sm = getattr(cfg.runtime, "streaming_mode", None)
+    if isinstance(sm, str):
+        sm_up = sm.upper()
+        if sm_up in ("NONE", "SSE", "BIDI"):
+            mode = getattr(StreamingMode, sm_up)
+
+    return RunConfig(
+        streaming_mode=mode,
+        max_llm_calls=getattr(cfg.runtime, "max_llm_calls", None) or 500,
+        save_input_blobs_as_artifacts=bool(
+            getattr(cfg.runtime, "save_input_blobs_as_artifacts", False)
+        ),
+    )

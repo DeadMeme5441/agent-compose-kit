@@ -18,6 +18,11 @@
 - Lint: `uv run --with ruff ruff check .`  •  Format: `uv run --with ruff ruff format .`
 - Test: `uv run --with pytest pytest -q`
 
+## Terminal UI (Textual)
+- Library: `textual` + `textual-dev` for a rich TUI (widgets, command palette, dev console).
+- Devtools: `uv run --with textual-dev textual run --dev python -m src.tui` (live CSS reload) and `textual console` for logs.
+- Plan: the TUI will provide a flows dashboard, YAML editor, run monitor, and logs/artifact views (see FULL_IMPLEMENTATION_PLAN.md).
+
 ## Coding Style & Naming Conventions
 - PEP 8, 4 spaces, max line length 100.
 - Names: `snake_case` (functions/vars), `PascalCase` (classes), lower_case modules.

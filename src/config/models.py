@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
@@ -62,7 +61,7 @@ class AgentConfig(BaseModel):
     name: str
     model: Any  # string or mapping (e.g., {type: litellm, model: "openai/gpt-4o", api_base: ...})
     instruction: Optional[str] = None
-    tools: List[str] = Field(default_factory=list)
+    tools: List[Any] = Field(default_factory=list)  # may be string or dict entries
     sub_agents: List[str] = Field(default_factory=list)
 
 
@@ -71,11 +70,17 @@ class GroupConfig(BaseModel):
     members: List[str]
 
 
+class WorkflowConfig(BaseModel):
+    type: Optional[Literal["sequential", "parallel", "loop"]] = None
+    nodes: List[str] = Field(default_factory=list)
+
+
 class AppConfig(BaseModel):
     services: Dict[str, Any] = Field(default_factory=dict)
     session_service: SessionServiceConfig = Field(default_factory=SessionServiceConfig)
     artifact_service: ArtifactServiceConfig = Field(default_factory=ArtifactServiceConfig)
     memory_service: Optional[MemoryServiceConfig] = None
+    workflow: Optional[WorkflowConfig] = None
     # Defaults for LiteLLM providers, keyed by provider name (e.g., openai, ollama_chat)
     model_providers: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     agents: List[AgentConfig] = Field(default_factory=list)
