@@ -1,0 +1,24 @@
+[project]
+name = "template-agent-builder"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    # The following are runtime deps for full functionality; install via uv if preferred
+    "google-adk>=0.1.0",  # provides Runner, LlmAgent, services
+    "adk-extra-services>=0.1.0",  # optional: redis/mongo/s3/local services
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

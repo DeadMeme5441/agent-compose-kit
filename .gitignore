@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.python-version
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+wheels/
+.tox/
+.nox/
+
+# Virtual envs
+.venv/
+venv/
+
+# Tools & caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage*
+coverage.xml
+htmlcov/
+
+# Editors/OS
+.DS_Store
+.vscode/
+.idea/
+
+# Local data & artifacts
+artifacts_storage/
+.env
+.env.*
+
+# Local configs generated at runtime (keep templates under templates/)
+configs/*.yaml
+!templates/

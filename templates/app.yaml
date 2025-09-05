@@ -1,0 +1,27 @@
+services:
+  session_service: {type: in_memory}
+  artifact_service: {type: local_folder, base_path: ./artifacts_storage}
+
+agents:
+  - name: planner
+    # Option A: Use Gemini directly
+    model: gemini-2.0-flash
+    instruction: You are a helpful planner.
+    tools: []
+
+  # - name: planner_openai
+  #   # Option B: Use LiteLLM to route to any provider (e.g., OpenAI, Anthropic, Ollama)
+  #   model:
+  #     type: litellm
+  #     model: openai/gpt-4o-mini
+  #     # api_base: http://localhost:11434/v1  # for Ollama via OpenAI shim
+  #     # api_key: ${OPENAI_API_KEY}
+  #     # extra_headers: { Authorization: "Bearer ${SOME_TOKEN}" }
+
+groups:
+  - name: demo
+    members: [planner]
+
+runtime:
+  streaming_mode: NONE
+  max_llm_calls: 200

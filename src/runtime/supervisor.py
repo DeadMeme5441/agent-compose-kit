@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional, Tuple
+
+from ..config.models import AppConfig, load_config_file
+from ..services.factory import build_artifact_service, build_session_service
+from ..agents.builder import build_agents
+
+
+def build_plan(cfg: AppConfig) -> str:
+    lines = []
+    lines.append("Plan:")
+    lines.append(f"- SessionService: {cfg.session_service.type}")
+    lines.append(f"- ArtifactService: {cfg.artifact_service.type}")
+    if cfg.memory_service and cfg.memory_service.type:
+        lines.append(f"- MemoryService: {cfg.memory_service.type}")
+    lines.append(f"- Agents: {[a.name for a in cfg.agents]}")
+    if cfg.groups:
+        lines.append(f"- Groups: {[g.name for g in cfg.groups]}")
+    return "\n".join(lines)
+
+
+def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optional[str] = None):
+    cfg = load_config_file(config_path)
+
+    # Services
+    artifact_service = build_artifact_service(cfg.artifact_service)
+    session_service = build_session_service(cfg.session_service)
+
+    # Agents
+    agent_map = build_agents(cfg.agents, provider_defaults=cfg.model_providers)
+    if not agent_map:
+        raise ValueError("No agents defined in config")
+    # Choose root: first agent or first group member
+    root_name = cfg.agents[0].name
+    root_agent = agent_map[root_name]
+
+    from google.adk.runners import Runner  # type: ignore
+
+    runner = Runner(
+        app_name="template-agent-builder",
+        agent=root_agent,  # type: ignore[arg-type]
+        artifact_service=artifact_service,
+        session_service=session_service,
+    )
+
+    # Create or resume session
+    if session_id:
+        session = runner.session_service.get_session(
+            app_name=runner.app_name, user_id=user_id, session_id=session_id
+        )
+        # if async, user can resume; for simplicity, always create new when not exists
+        # In ADK Python, get_session is async; keeping simple here, use create
+    # Always create a new session for now
+    import asyncio
+
+    async def _create():
+        return await runner.session_service.create_session(
+            app_name=runner.app_name, user_id=user_id
+        )
+
+    session = asyncio.run(_create())
+    return runner, session
