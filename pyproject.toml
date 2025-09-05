@@ -9,8 +9,11 @@ dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
     # The following are runtime deps for full functionality; install via uv if preferred
-    "google-adk>=0.1.0",  # provides Runner, LlmAgent, services
-    "adk-extra-services>=0.1.0",  # optional: redis/mongo/s3/local services
+    "google-adk>=0.1.0", # provides Runner, LlmAgent, services
+    "adk-extra-services>=0.1.0", # optional: redis/mongo/s3/local services
+    "textual>=6.1.0",
+    "textual-dev>=1.7.0",
+    "litellm>=1.76.2",
 ]
 
 [tool.ruff]
@@ -22,3 +25,11 @@ select = ["E", "F", "I"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "ruff>=0.12.12",
+    "textual>=6.1.0",
+    "textual-dev>=1.7.0",
+]

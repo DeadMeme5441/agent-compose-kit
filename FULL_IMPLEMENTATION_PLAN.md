@@ -236,9 +236,10 @@ runtime:
 
 
 ## 10) Current Status (Baseline)
-- Implemented: CLI (init/validate/plan/run), config schema + env interpolation, provider defaults (`model_providers`), services (in_memory + redis/mongo; in_memory + local/s3/gcs), agent builder (string + LiteLLM), supervisor, template, docs.
+- Implemented: CLI (init/validate/plan/run/graph), config schema + env interpolation, provider defaults (`model_providers`), services (in_memory + redis/mongo; in_memory + local/s3/gcs; memory in_memory + vertex_ai), agent builder (string + LiteLLM + function tools), workflow composition (sequential/parallel/loop), supervisor, template, docs, minimal TUI stub.
 - Verified runs: Gemini (GOOGLE_API_KEY) and LiteLLM→Ollama (`ollama_chat/gpt-oss:20b`).
-- To finish M1: memory service, RunConfig mapping, workflow agents, function tools, graph command, tests.
+- Tests: unit + CLI integration (6 passing).
+- To finish M1: wire TUI actions; expand tests and error ergonomics.
 
 
 ## 11) Risks & Mitigations
@@ -255,7 +256,6 @@ runtime:
 
 
 ## 13) Next Actions
-- Implement memory wiring + RunConfig mapping.
-- Add function tool registry + YAML schema/adapters.
-- Add `workflow` types + graph command.
-- Expand tests and examples; refine docs.
+- Wire Textual TUI actions to validate/plan/run with background workers.
+- Add more tests (workflow edges, DOT/ASCII output, invalid config paths).
+- Begin MCP client tools adapter and OpenAPI tools schema (M2).

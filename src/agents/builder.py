@@ -52,7 +52,13 @@ def build_agents(agent_cfgs: List[AgentConfig], *, provider_defaults: Mapping[st
             mod = __import__(mod_name, fromlist=[func_name])
             func = getattr(mod, func_name)
             name = entry.get("name")
-            return FunctionTool(func=func, name=name)
+            tool = FunctionTool(func=func)
+            if name:
+                try:
+                    setattr(tool, "name", name)
+                except Exception:
+                    pass
+            return tool
         # strings can be resolved later to known builtins (future)
         return entry
 

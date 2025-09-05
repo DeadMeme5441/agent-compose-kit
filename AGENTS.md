@@ -13,6 +13,7 @@
   - Init: `uv run python -m src.main init`
   - Validate: `uv run python -m src.main validate configs/app.yaml`
   - Plan: `uv run python -m src.main plan configs/app.yaml`
+  - Graph: `uv run python -m src.main graph configs/app.yaml [--dot]`
   - Run (Gemini only): `uv run --with google-adk python -m src.main run configs/app.yaml`
   - Run (with extra services): `uv run --with google-adk --with adk-extra-services python -m src.main run configs/app.yaml`
 - Lint: `uv run --with ruff ruff check .`  •  Format: `uv run --with ruff ruff format .`
@@ -20,8 +21,9 @@
 
 ## Terminal UI (Textual)
 - Library: `textual` + `textual-dev` for a rich TUI (widgets, command palette, dev console).
-- Devtools: `uv run --with textual-dev textual run --dev python -m src.tui` (live CSS reload) and `textual console` for logs.
-- Plan: the TUI will provide a flows dashboard, YAML editor, run monitor, and logs/artifact views (see FULL_IMPLEMENTATION_PLAN.md).
+- Stub: `uv run --with textual --with textual-dev python -m src.tui` to launch a minimal TUI. Keybindings: p (plan), v (validate), r (run), q (quit).
+- Devtools: `textual run --dev python -m src.tui` (live CSS reload) and `textual console` for logs.
+- Roadmap: flows dashboard, YAML editor (TextArea), run monitor (DataTable), artifacts browser (see FULL_IMPLEMENTATION_PLAN.md).
 
 ## Coding Style & Naming Conventions
 - PEP 8, 4 spaces, max line length 100.
@@ -35,6 +37,7 @@
 - `mcp`: outbound MCP servers to consume as tools (host/port/auth/allowlist).
 - `runtime`: `RunConfig` options (streaming_mode, max_llm_calls, save_input_blobs_as_artifacts, speech).
 - `model_providers`: defaults per LiteLLM provider (e.g., `openai`, `ollama_chat`) merged into agent models.
+ - `workflow`: `{type: sequential|parallel|loop, nodes: [agent names]}` to compose multi-agent flows.
 - Example:
   ```yaml
   services:
@@ -89,3 +92,14 @@
   - OpenAI: set `OPENAI_API_KEY`; model `openai/gpt-4o-mini`.
   - Ollama (local): set `OPENAI_API_BASE=http://localhost:11434/v1` and `OPENAI_API_KEY=anything`; model `openai/mistral-small3.1`.
   - Anthropic direct: set `ANTHROPIC_API_KEY`; model `anthropic/claude-3-5-sonnet-latest`.
+
+## Dev Workflow (Fresh Start)
+- `uv sync` to install deps; add new ones with `uv add <pkg>` (use `--dev` for dev tools).
+- Run tests: `uv run --with pytest pytest -q` (should pass out-of-the-box).
+- Validate a config: `uv run python -m src.main validate configs/app.yaml`.
+- Extend features:
+  - Services: `src/services/factory.py`
+  - Config models: `src/config/models.py`
+  - Agents/tools: `src/agents/builder.py`
+  - Runner logic: `src/runtime/supervisor.py`
+  - CLI: `src/cli.py`; TUI: `src/tui.py`

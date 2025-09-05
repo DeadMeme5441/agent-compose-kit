@@ -1,8 +1,9 @@
-from src.main import main
+from click.testing import CliRunner
+from src.cli import app
 
 
-def test_main_prints(capsys):
-    main()
-    captured = capsys.readouterr()
-    assert "Hello from template-agent-builder!" in captured.out
-
+def test_cli_help():
+    runner = CliRunner()
+    r = runner.invoke(app, ["--help"])
+    assert r.exit_code == 0
+    assert "Template Agent Builder CLI" in r.output
