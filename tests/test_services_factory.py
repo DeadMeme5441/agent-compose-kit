@@ -5,10 +5,19 @@ and successful instantiation when required parameters are provided.
 """
 
 import importlib.util
+
 import pytest
 
-from agent_compose_kit.config.models import ArtifactServiceConfig, MemoryServiceConfig, SessionServiceConfig
-from agent_compose_kit.services.factory import build_artifact_service, build_memory_service, build_session_service
+from agent_compose_kit.config.models import (
+    ArtifactServiceConfig,
+    MemoryServiceConfig,
+    SessionServiceConfig,
+)
+from agent_compose_kit.services.factory import (
+    build_artifact_service,
+    build_memory_service,
+    build_session_service,
+)
 
 
 def _cls_name(obj) -> str:
@@ -44,7 +53,11 @@ def test_session_mongo_fallback_to_memory_when_missing_url():
 def test_session_mongo_with_url_instantiates():
     if not _has_module("adk_extra_services"):
         pytest.skip("adk-extra-services not installed")
-    svc = build_session_service(SessionServiceConfig(type="mongo", mongo_url="mongodb://localhost:27017", db_name="adk"))
+    svc = build_session_service(
+        SessionServiceConfig(
+            type="mongo", mongo_url="mongodb://localhost:27017", db_name="adk"
+        )
+    )
     assert "MongoSessionService" in _cls_name(svc)
 
 
@@ -73,7 +86,9 @@ def test_artifact_local_folder_fallback_when_missing_base_path():
 def test_artifact_local_folder_with_path_instantiates(tmp_path):
     if not _has_module("adk_extra_services"):
         pytest.skip("adk-extra-services not installed")
-    art = build_artifact_service(ArtifactServiceConfig(type="local_folder", base_path=str(tmp_path)))
+    art = build_artifact_service(
+        ArtifactServiceConfig(type="local_folder", base_path=str(tmp_path))
+    )
     assert "LocalFolderArtifactService" in _cls_name(art)
 
 

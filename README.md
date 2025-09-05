@@ -1,5 +1,5 @@
-Template Agent Builder (Core)
-================================
+Agent Compose Kit
+=================
 
 ![CI](https://github.com/DeadMeme5441/agent-compose-kit/actions/workflows/ci.yml/badge.svg)
 ![Publish](https://github.com/DeadMeme5441/agent-compose-kit/actions/workflows/publish.yml/badge.svg)
@@ -67,6 +67,10 @@ Requirements
 - Optional extras at runtime depending on backends:
   - google-adk, adk-extra-services, litellm
   - For MCP stdio mode: `mcp` package (and any server requirements)
+
+Install
+- pip: `pip install agent-compose-kit`
+- uv: `uv add agent-compose-kit`
 
 Install (dev)
 - uv sync

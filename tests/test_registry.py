@@ -2,14 +2,19 @@ from pathlib import Path
 
 import pytest
 
-from agent_compose_kit.tools.registry import ToolRegistry
 from agent_compose_kit.agents.registry import AgentRegistry
+from agent_compose_kit.tools.registry import ToolRegistry
 
 
 def test_tool_registry_get_and_group(tmp_path: Path):
     specs = {
         "tools": [
-            {"id": "util.add", "type": "function", "ref": "tests.helpers:sample_tool", "name": "add"}
+            {
+                "id": "util.add",
+                "type": "function",
+                "ref": "tests.helpers:sample_tool",
+                "name": "add",
+            }
         ],
         "groups": [{"id": "essentials", "include": ["util.add", "util.add"]}],
     }
@@ -25,7 +30,12 @@ def test_tool_registry_get_and_group(tmp_path: Path):
 def test_agent_registry_with_tool_registry(tmp_path: Path):
     tool_specs = {
         "tools": [
-            {"id": "util.add", "type": "function", "ref": "tests.helpers:sample_tool", "name": "add"}
+            {
+                "id": "util.add",
+                "type": "function",
+                "ref": "tests.helpers:sample_tool",
+                "name": "add",
+            }
         ]
     }
     tools = ToolRegistry(tool_specs, base_dir=tmp_path)
@@ -47,7 +57,12 @@ def test_agent_registry_with_tool_registry(tmp_path: Path):
         "groups": [{"id": "team", "include": ["calc", "parent"]}],
     }
     try:
-        reg = AgentRegistry(agent_specs, base_dir=tmp_path, provider_defaults={}, tool_registry=tools)
+        reg = AgentRegistry(
+            agent_specs,
+            base_dir=tmp_path,
+            provider_defaults={},
+            tool_registry=tools,
+        )
     except ImportError:
         pytest.skip("google-adk not installed")
     a = reg.get("calc")

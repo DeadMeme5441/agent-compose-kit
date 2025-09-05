@@ -29,7 +29,12 @@ def _ensure_list_filter(v: Any) -> Optional[List[str]]:
     raise ValueError("tool_filter must be a list of strings")
 
 
-def load_tool_entry(entry: Any, *, base_dir: Path, toolsets_map: Optional[Dict[str, object]] = None) -> object:
+def load_tool_entry(
+    entry: Any,
+    *,
+    base_dir: Path,
+    toolsets_map: Optional[Dict[str, object]] = None,
+) -> object:
     """Load a single tool or toolset from YAML entry.
 
     Supports:
@@ -90,8 +95,14 @@ def load_tool_entry(entry: Any, *, base_dir: Path, toolsets_map: Optional[Dict[s
                 raise ValueError("mcp stdio requires 'command'")
             if not isinstance(args, list):
                 raise ValueError("mcp stdio 'args' must be a list of strings")
-            server_params = StdioServerParameters(command=str(command), args=[str(a) for a in args])
-            conn = StdioConnectionParams(server_params=server_params, timeout=float(entry.get("timeout", 5.0)))
+            server_params = StdioServerParameters(
+                command=str(command),
+                args=[str(a) for a in args],
+            )
+            conn = StdioConnectionParams(
+                server_params=server_params,
+                timeout=float(entry.get("timeout", 5.0)),
+            )
             return McpToolset(connection_params=conn, tool_filter=tool_filter)
         if mode == "sse":
             url = entry.get("url")
@@ -160,7 +171,12 @@ def load_toolsets_map(cfg_toolsets: Dict[str, Any], *, base_dir: Path) -> Dict[s
     return out
 
 
-def load_tool_list(entries: List[Any], *, base_dir: Path, toolsets_map: Optional[Dict[str, object]] = None) -> List[object]:
+def load_tool_list(
+    entries: List[Any],
+    *,
+    base_dir: Path,
+    toolsets_map: Optional[Dict[str, object]] = None,
+) -> List[object]:
     """Load tool/toolset entries into concrete tool objects."""
     tools: List[object] = []
     for e in entries or []:

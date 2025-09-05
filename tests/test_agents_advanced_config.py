@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from agent_compose_kit.config.models import AgentConfig
 from agent_compose_kit.agents.builder import build_agents
+from agent_compose_kit.config.models import AgentConfig
 
 
 _HAS_ADK = importlib.util.find_spec("google.adk") is not None

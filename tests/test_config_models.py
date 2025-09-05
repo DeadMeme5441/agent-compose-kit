@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agent_compose_kit.config.models import load_config_file, AppConfig, write_example_config
+from agent_compose_kit.config.models import AppConfig, load_config_file, write_example_config
 
 
 def test_services_back_compat(tmp_path: Path):

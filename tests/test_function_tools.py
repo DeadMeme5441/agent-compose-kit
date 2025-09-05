@@ -1,10 +1,8 @@
 import importlib
-from pathlib import Path
-
 import pytest
 
-from agent_compose_kit.config.models import AgentConfig
 from agent_compose_kit.agents.builder import build_agents
+from agent_compose_kit.config.models import AgentConfig
 
 
 def helper_tool() -> str:  # used by dotted import

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
-from .registry import ToolRegistry
 from ..config.models import AppConfig
+from .registry import ToolRegistry
 
 
 def build_tool_registry_from_config(cfg: AppConfig, *, base_dir: str | Path = ".") -> ToolRegistry:

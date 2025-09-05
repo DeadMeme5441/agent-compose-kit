@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from agent_compose_kit.agents import tools as util
-from agent_compose_kit.config.models import AppConfig, AgentConfig
+from agent_compose_kit.config.models import AgentConfig, AppConfig
 
 
 def test_list_read_search(tmp_path: Path):

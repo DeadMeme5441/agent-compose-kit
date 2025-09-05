@@ -1,7 +1,13 @@
 from pathlib import Path
 
-from agent_compose_kit.config.models import AppConfig, AgentConfig
-from agent_compose_kit.registry.fs import save_system, list_systems, list_versions, load_system, promote
+from agent_compose_kit.config.models import AgentConfig, AppConfig
+from agent_compose_kit.registry.fs import (
+    list_systems,
+    list_versions,
+    load_system,
+    promote,
+    save_system,
+)
 
 
 def test_fs_registry_save_load_promote(tmp_path: Path):

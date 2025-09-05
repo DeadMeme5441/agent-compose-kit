@@ -1,7 +1,6 @@
-import os
 from pathlib import Path
 
-from agent_compose_kit.config.models import load_config_file, AppConfig
+from agent_compose_kit.config.models import AppConfig, load_config_file
 
 
 def test_env_interpolation_and_services(tmp_path: Path, monkeypatch):

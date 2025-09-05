@@ -1,14 +1,14 @@
-import os
 from pathlib import Path
+import importlib.util
 
 import pytest
 
 from agent_compose_kit.paths import (
-    get_systems_root,
     get_outputs_root,
     get_sessions_uri,
-    resolve_system_dir,
+    get_systems_root,
     resolve_outputs_dir,
+    resolve_system_dir,
 )
 from agent_compose_kit.api.public import event_to_minimal_json
 
@@ -60,14 +60,14 @@ def test_event_to_minimal_json_serialization():
     assert out["content"]["parts"][0]["text"] == "hi"
 
 
-import importlib.util
-
-
-@pytest.mark.skipif(importlib.util.find_spec("google.adk") is None, reason="google-adk not installed")
+@pytest.mark.skipif(
+    importlib.util.find_spec("google.adk") is None,
+    reason="google-adk not installed",
+)
 def test_system_manager_root_naming_with_workflow(tmp_path: Path):
     # Only run when google-adk is present; otherwise skip to avoid heavy deps
-    from agent_compose_kit.runtime.supervisor import build_runner_from_yaml
     from agent_compose_kit.config.models import AppConfig, AgentConfig, WorkflowConfig
+    from agent_compose_kit.runtime.supervisor import build_runner_from_yaml
 
     cfg = AppConfig(
         agents=[

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_compose_kit.config.models import AppConfig, AgentConfig, WorkflowConfig
+from agent_compose_kit.config.models import AgentConfig, AppConfig, WorkflowConfig
 from agent_compose_kit.runtime.supervisor import build_runner_from_yaml
 
 
