@@ -1,6 +1,6 @@
 [project]
 name = "agent-compose-kit"
-version = "0.1.2"
+version = "0.1.3"
 description = "Core library to compose, validate, and run ADK agent systems from YAML."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -18,9 +18,10 @@ dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
     # The following are runtime deps for full functionality; install via uv if preferred
-    "google-adk>=0.1.0", # provides Runner, LlmAgent, services
-    "adk-extra-services>=0.1.0", # optional: redis/mongo/s3/local services
+    "google-adk>=0.1.0", # provides Runner, LlmAgent, core services
+    "google-adk-extras>=0.1.0", # sessions/artifacts/memory extras (redis/mongo/sql/s3/yaml)
     "litellm>=1.76.2",
+    "google-adk-extras>=0.1.1",
 ]
 
 [project.optional-dependencies]

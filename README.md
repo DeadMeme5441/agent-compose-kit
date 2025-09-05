@@ -12,9 +12,9 @@ Core Python library for YAML-driven construction of agent systems using Google A
 Features
 - Config schema (Pydantic) with environment interpolation and provider defaults.
 - Services (conservative defaults):
-  - Sessions: in-memory (default), Redis, Mongo, Database (SQLAlchemy URL).
-  - Artifacts: in-memory (default), Local folder, S3, GCS.
-  - Memory: in-memory (default), Vertex AI (falls back to in-memory if missing params).
+  - Sessions: in-memory (default), Redis (host/port/db/password or URL), Mongo, SQL (database_url), YAML file.
+- Artifacts: in-memory (default), Local folder, S3, Mongo, SQL.
+- Memory: in-memory (default), Redis, Mongo, SQL, YAML file.
 - Agents: direct model IDs (Gemini/Vertex) or LiteLLM models (OpenAI, Anthropic, Ollama, vLLM), function tools, sub-agent wiring.
 - Workflows: sequential, parallel, loop composition.
 - Runtime: map YAML runtime to ADK RunConfig; build ADK Runner instances.
@@ -65,7 +65,7 @@ agents:
 Requirements
 - Python 3.12+
 - Optional extras at runtime depending on backends:
-  - google-adk, adk-extra-services, litellm
+  - google-adk, google-adk-extras, litellm
   - For MCP stdio mode: `mcp` package (and any server requirements)
 
 Install

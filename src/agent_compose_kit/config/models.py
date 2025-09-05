@@ -12,48 +12,83 @@ ServiceType = Literal[
     "in_memory",
     "redis",
     "mongo",
-    "vertex_ai",
+    "sql",
+    "yaml_file",
     "db",
     "database",
-    "gcs",
     "s3",
     "local_folder",
 ]
 
 
 class SessionServiceConfig(BaseModel):
-    """Config for SessionService backends (in-memory, redis, mongo, database)."""
-    type: Literal["in_memory", "redis", "mongo", "vertex_ai", "db", "database"] = "in_memory"
-    # redis
+    """Config for SessionService backends.
+
+    Supported types: in_memory, redis, mongo, sql, yaml_file, db, database
+    """
+    type: Literal[
+        "in_memory",
+        "redis",
+        "mongo",
+        "sql",
+        "yaml_file",
+        "db",
+        "database",
+    ] = "in_memory"
+    # redis (url or discrete fields)
     redis_url: Optional[str] = None
+    redis_host: Optional[str] = None
+    redis_port: Optional[int] = None
+    redis_db: Optional[int] = None
+    redis_password: Optional[str] = None
     # mongo
     mongo_url: Optional[str] = None
     db_name: Optional[str] = None
-    # database (sqlalchemy URL)
+    # sql (SQLAlchemy-style URL)
     db_url: Optional[str] = None
-    # vertex ai / db may need extra fields; keep generic for now
+    # yaml files
+    base_path: Optional[str] = None
+    # extra params
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ArtifactServiceConfig(BaseModel):
-    """Config for ArtifactService backends (in-memory, local, s3, gcs)."""
-    type: Literal["in_memory", "gcs", "s3", "local_folder"] = "in_memory"
-    # gcs
+    """Config for ArtifactService backends (in-memory, local, s3, mongo, sql)."""
+    type: Literal["in_memory", "s3", "local_folder", "mongo", "sql"] = "in_memory"
+    # s3/mongo
     bucket_name: Optional[str] = None
     # s3
     endpoint_url: Optional[str] = None
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     region_name: Optional[str] = None
+    s3_prefix: Optional[str] = None
     # local
     base_path: Optional[str] = None
+    # mongo
+    mongo_url: Optional[str] = None
+    db_name: Optional[str] = None
+    # sql
+    db_url: Optional[str] = None
     # generic
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
 class MemoryServiceConfig(BaseModel):
-    """Config for MemoryService (in-memory or Vertex AI Memory Bank)."""
-    type: Optional[Literal["in_memory", "vertex_ai"]] = None
+    """Config for MemoryService (in-memory or extras-backed)."""
+    type: Optional[Literal["in_memory", "redis", "mongo", "sql", "yaml_file"]] = None
+    # redis (discrete fields)
+    redis_host: Optional[str] = None
+    redis_port: Optional[int] = None
+    redis_db: Optional[int] = None
+    # mongo
+    mongo_url: Optional[str] = None
+    db_name: Optional[str] = None
+    # sql
+    db_url: Optional[str] = None
+    # yaml
+    base_path: Optional[str] = None
+    # generic
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
