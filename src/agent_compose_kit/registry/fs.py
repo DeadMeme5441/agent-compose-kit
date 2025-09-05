@@ -33,6 +33,7 @@ def save_system(cfg: AppConfig, *, name: str, version: str, root: str | Path = "
 
 
 def list_systems(*, root: str | Path = "registry") -> List[str]:
+    """List system names available under the registry root."""
     rootp = Path(root).resolve()
     if not rootp.exists():
         return []
@@ -40,6 +41,7 @@ def list_systems(*, root: str | Path = "registry") -> List[str]:
 
 
 def list_versions(name: str, *, root: str | Path = "registry") -> List[str]:
+    """List versions/tags available for a given system name."""
     base = _sys_dir(Path(root).resolve(), name)
     if not base.exists():
         return []
@@ -47,6 +49,7 @@ def list_versions(name: str, *, root: str | Path = "registry") -> List[str]:
 
 
 def load_system(name: str, version: str, *, root: str | Path = "registry") -> AppConfig:
+    """Load a saved AppConfig for system/version from the filesystem registry."""
     import yaml
 
     cfg_path = _sys_dir(Path(root).resolve(), name) / version / "config.yaml"
@@ -71,4 +74,3 @@ def promote(name: str, version: str, tag: str, *, root: str | Path = "registry")
         shutil.rmtree(dst)
     shutil.copytree(src, dst)
     return dst
-

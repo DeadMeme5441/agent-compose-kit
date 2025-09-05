@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.tools.loader import load_tool_entry, load_tool_list, load_toolsets_map
+from agent_compose_kit.tools.loader import load_tool_entry, load_tool_list, load_toolsets_map
 
 
 def _has(mod: str) -> bool:

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.config.models import load_config_file, AppConfig, write_example_config
+from agent_compose_kit.config.models import load_config_file, AppConfig, write_example_config
 
 
 def test_services_back_compat(tmp_path: Path):
@@ -28,4 +28,3 @@ def test_write_example_config(tmp_path: Path):
     write_example_config(p)
     data = p.read_text()
     assert "session_service" in data and "artifact_service" in data and "agents:" in data
-

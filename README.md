@@ -1,7 +1,13 @@
 Template Agent Builder (Core)
 ================================
 
-Core Python library for YAML-driven construction of agent workflows using Google ADK. This package provides configuration models, service factories, agent builders, and runtime utilities to compose and run multi-agent flows programmatically. No CLI or TUI is included.
+![CI](https://github.com/DeadMeme5441/agent-compose-kit/actions/workflows/ci.yml/badge.svg)
+![Publish](https://github.com/DeadMeme5441/agent-compose-kit/actions/workflows/publish.yml/badge.svg)
+[![PyPI](https://img.shields.io/pypi/v/agent-compose-kit.svg)](https://pypi.org/project/agent-compose-kit/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/agent-compose-kit.svg)](https://pypi.org/project/agent-compose-kit/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Core Python library for YAML-driven construction of agent systems using Google ADK. This package provides configuration models, service factories, agent and tool builders, registries, runtime utilities, and a thin server wrapper. It is designed to be consumed by external clients (CLI or web) that handle end-user interaction. No CLI or TUI is included in this repo.
 
 Features
 - Config schema (Pydantic) with environment interpolation and provider defaults.
@@ -12,6 +18,7 @@ Features
 - Agents: direct model IDs (Gemini/Vertex) or LiteLLM models (OpenAI, Anthropic, Ollama, vLLM), function tools, sub-agent wiring.
 - Workflows: sequential, parallel, loop composition.
 - Runtime: map YAML runtime to ADK RunConfig; build ADK Runner instances.
+- Public API for external CLIs: system/session helpers, run helpers, env-based path helpers.
 
 Design notes
 - Conservative by default: when required service parameters are not provided, factories fall back to in-memory implementations (never attempt network/local resources silently).
@@ -67,10 +74,10 @@ Install (dev)
 Quickstart (Programmatic)
 ```python
 from pathlib import Path
-from src.config.models import load_config_file
-from src.services.factory import build_session_service, build_artifact_service, build_memory_service
-from src.agents.builder import build_agents
-from src.runtime.supervisor import build_plan, build_run_config
+from agent_compose_kit.config.models import load_config_file
+from agent_compose_kit.services.factory import build_session_service, build_artifact_service, build_memory_service
+from agent_compose_kit.agents.builder import build_agents
+from agent_compose_kit.runtime.supervisor import build_plan, build_run_config
 
 cfg = load_config_file(Path("configs/app.yaml"))
 print(build_plan(cfg))
@@ -92,9 +99,9 @@ Registries (Tools & Agents)
 - Define reusable tools and agents in your config, then build registries:
 ```python
 from pathlib import Path
-from src.config.models import load_config_file
-from src.tools.builders import build_tool_registry_from_config
-from src.agents.builders_registry import build_agent_registry_from_config
+from agent_compose_kit.config.models import load_config_file
+from agent_compose_kit.tools.builders import build_tool_registry_from_config
+from agent_compose_kit.agents.builders_registry import build_agent_registry_from_config
 
 cfg = load_config_file(Path("configs/app.yaml"))
 tool_reg = build_tool_registry_from_config(cfg, base_dir=".")
@@ -103,11 +110,36 @@ agent_reg = build_agent_registry_from_config(cfg, base_dir=".", provider_default
 root = agent_reg.get("parent")  # or agent_reg.get_group("core")[0]
 ```
 
+Public API (for external CLI)
+- Build a system and run a message:
+```python
+from pathlib import Path
+from agent_compose_kit.api.public import SystemManager, SessionManager, run_text, event_to_minimal_json
+
+sm = SystemManager(base_dir=Path("./systems/my_system"))
+cfg = sm.load("config.yaml")
+runner, _resources = sm.build_runner(cfg)
+
+import asyncio
+
+async def main():
+    sess = await SessionManager(runner).get_or_create(user_id="u1")
+    async for ev in run_text(runner=runner, user_id="u1", session_id=sess.id, text="hello"):
+        print(event_to_minimal_json(ev))
+
+asyncio.run(main())
+```
+
+Environment variables (optional)
+- `AGENT_SYS_DIR`: root directory where systems live (default `./systems`).
+- `AGENT_OUTPUTS_DIR`: root directory for outputs/artifacts (default `./outputs`).
+- `AGENT_SESSIONS_URI`: default sessions storage URI (default `sqlite:///./sessions.db`).
+
 Serve as API (ADK FastAPI)
 - Generate an ADK wrapper module so `adk run`/`adk web` can load your root agent:
 ```python
 from pathlib import Path
-from src.serve.scaffold import write_adk_wrapper, write_fastapi_app_py, write_docker_scaffold
+from agent_compose_kit.serve.scaffold import write_adk_wrapper, write_fastapi_app_py, write_docker_scaffold
 
 agents_dir = Path("./agents"); agents_dir.mkdir(exist_ok=True)
 write_adk_wrapper(agents_dir=agents_dir, system_name="my_system", config_path=Path("configs/app.yaml"), package_import="src", copy_config=True)
@@ -161,12 +193,14 @@ Project Structure
 - `src/agents/builders_registry.py` — helpers to build AgentRegistry from AppConfig.
 - `src/tools/builders.py` — helpers to build ToolRegistry from AppConfig.
 - `src/registry/fs.py` — filesystem helpers for saving/loading systems.
+ - `src/api/public.py` — public API for external CLIs (SystemManager, SessionManager, run helpers).
+ - `src/paths.py` — path/env helpers (AGENT_SYS_DIR, AGENT_OUTPUTS_DIR, AGENT_SESSIONS_URI).
 
 Schema & Registry
 - Export AppConfig JSON schema programmatically:
-  - `from src.config.models import export_app_config_schema`
+  - `from agent_compose_kit.config.models import export_app_config_schema`
 - Save/load system configs:
-  - `from src.registry.fs import save_system, load_system, list_systems, list_versions, promote`
+  - `from agent_compose_kit.registry.fs import save_system, load_system, list_systems, list_versions, promote`
 - `src/runtime/supervisor.py` — plan summary, Runner construction, RunConfig mapping.
 - `templates/app.yaml` — example config template.
 
@@ -174,4 +208,13 @@ Roadmap
 - See `FULL_IMPLEMENTATION_PLAN.md` for detailed milestones (MCP/OpenAPI toolsets, JSON Schema export, registry helpers, observability hooks).
 
 License
-Apache-2.0
+MIT
+
+Publishing plan (summary)
+- Finalize metadata in `pyproject.toml`: project name, description, license, classifiers, homepage/repo URLs, keywords.
+- Optional extras: define `[project.optional-dependencies]` for `web` (fastapi, uvicorn), `tools` (mcp, openapi), and `dev` (ruff, pytest).
+- Versioning: adopt SemVer; tag releases in VCS (e.g., v0.1.0).
+- Build: `python -m build` (ensure `build` in dev deps) or `uv build`.
+- Publish: `twine upload dist/*` (or GitHub Actions workflow for publish-on-tag).
+- Docs: keep README as long_description; ensure `README.md` renders on PyPI.
+- CI: add GitHub Actions for lint/test on PR; optional publish job on tag.

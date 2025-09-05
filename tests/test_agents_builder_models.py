@@ -1,7 +1,7 @@
 import pytest
 
-from src.config.models import AgentConfig
-from src.agents.builder import build_agents
+from agent_compose_kit.config.models import AgentConfig
+from agent_compose_kit.agents.builder import build_agents
 
 
 def test_sub_agents_wiring(monkeypatch):
@@ -39,4 +39,3 @@ def test_litellm_provider_defaults_merge():
     assert not isinstance(model_obj, str)
     # Attributes may or may not be public; check repr contains hints
     assert "openai" in repr(model_obj).lower() or "lite" in repr(model_obj).lower()
-

@@ -7,8 +7,8 @@ and successful instantiation when required parameters are provided.
 import importlib.util
 import pytest
 
-from src.config.models import ArtifactServiceConfig, MemoryServiceConfig, SessionServiceConfig
-from src.services.factory import build_artifact_service, build_memory_service, build_session_service
+from agent_compose_kit.config.models import ArtifactServiceConfig, MemoryServiceConfig, SessionServiceConfig
+from agent_compose_kit.services.factory import build_artifact_service, build_memory_service, build_session_service
 
 
 def _cls_name(obj) -> str:

@@ -13,6 +13,7 @@ from ..agents.builder import build_agents
 
 
 def build_plan(cfg: AppConfig) -> str:
+    """Return a human-readable plan summary derived from AppConfig."""
     lines = []
     lines.append("Plan:")
     lines.append(f"- SessionService: {cfg.session_service.type}")
@@ -26,6 +27,11 @@ def build_plan(cfg: AppConfig) -> str:
 
 
 def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optional[str] = None):
+    """Build a Runner and create a session from a YAML config path.
+
+    Returns a tuple (runner, session). Root agent is named `root_agent`.
+    Applies `global_instruction` to the root agent when provided.
+    """
     cfg = load_config_file(config_path)
 
     # Services
@@ -37,7 +43,7 @@ def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optio
     agent_map = build_agents(cfg.agents, provider_defaults=cfg.model_providers)
     if not agent_map:
         raise ValueError("No agents defined in config")
-    # Choose root: workflow if defined, else first agent or first group member
+    # Choose root: workflow if defined, else first agent
     root_agent = None
     if cfg.workflow and cfg.workflow.type and cfg.workflow.nodes:
         wf_type = cfg.workflow.type
@@ -45,18 +51,29 @@ def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optio
         if wf_type == "sequential":
             from google.adk.agents.sequential_agent import SequentialAgent  # type: ignore
 
-            root_agent = SequentialAgent(name="workflow", sub_agents=nodes)
+            root_agent = SequentialAgent(name="root_agent", sub_agents=nodes)
         elif wf_type == "parallel":
             from google.adk.agents.parallel_agent import ParallelAgent  # type: ignore
 
-            root_agent = ParallelAgent(name="workflow", sub_agents=nodes)
+            root_agent = ParallelAgent(name="root_agent", sub_agents=nodes)
         elif wf_type == "loop":
             from google.adk.agents.loop_agent import LoopAgent  # type: ignore
 
-            root_agent = LoopAgent(name="workflow", sub_agents=nodes)
+            root_agent = LoopAgent(name="root_agent", sub_agents=nodes)
     if root_agent is None:
         root_name = cfg.agents[0].name
         root_agent = agent_map[root_name]
+    # Normalize root agent name
+    try:
+        setattr(root_agent, "name", "root_agent")
+    except Exception:
+        pass
+    # Apply global instruction if provided
+    if getattr(cfg, "global_instruction", None):
+        try:
+            setattr(root_agent, "global_instruction", cfg.global_instruction)
+        except Exception:
+            pass
 
     from google.adk.runners import Runner  # type: ignore
 
@@ -88,6 +105,7 @@ def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optio
 
 
 def build_run_config(cfg: AppConfig):
+    """Construct ADK RunConfig from AppConfig.runtime (streaming, limits)."""
     """Construct ADK RunConfig from YAML runtime section."""
     from google.adk.agents.run_config import RunConfig, StreamingMode  # type: ignore
 

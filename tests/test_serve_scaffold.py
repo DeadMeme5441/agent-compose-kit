@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.serve.scaffold import write_adk_wrapper, write_fastapi_app_py, write_docker_scaffold
+from agent_compose_kit.serve.scaffold import write_adk_wrapper, write_fastapi_app_py, write_docker_scaffold
 
 
 def test_scaffold_wrapper_and_app(tmp_path: Path):
@@ -17,4 +17,3 @@ def test_scaffold_wrapper_and_app(tmp_path: Path):
     assert app_py.exists()
     dockerfile = write_docker_scaffold(output_dir=tmp_path, dist_name="agent-compose-kit")
     assert dockerfile.exists()
-

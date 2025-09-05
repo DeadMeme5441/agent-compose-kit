@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from src.tools.registry import ToolRegistry
-from src.agents.registry import AgentRegistry
+from agent_compose_kit.tools.registry import ToolRegistry
+from agent_compose_kit.agents.registry import AgentRegistry
 
 
 def test_tool_registry_get_and_group(tmp_path: Path):
@@ -58,4 +58,3 @@ def test_agent_registry_with_tool_registry(tmp_path: Path):
     assert len(subs) == 1 and getattr(subs[0], "name", None) == "calculator"
     team = reg.get_group("team")
     assert len(team) == 2
-

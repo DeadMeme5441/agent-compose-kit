@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from src.config.models import load_config_file, AppConfig
+from agent_compose_kit.config.models import load_config_file, AppConfig
 
 
 def test_env_interpolation_and_services(tmp_path: Path, monkeypatch):
@@ -23,4 +23,3 @@ agents:
     assert cfg.session_service.type == "in_memory"
     assert cfg.artifact_service.type == "local_folder"
     assert cfg.model_providers["openai"]["api_key"] == "sk-test"
-

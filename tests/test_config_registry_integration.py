@@ -3,9 +3,9 @@ from pathlib import Path
 import yaml
 import pytest
 
-from src.config.models import AppConfig, load_config_file
-from src.tools.builders import build_tool_registry_from_config
-from src.agents.builders_registry import build_agent_registry_from_config
+from agent_compose_kit.config.models import AppConfig, load_config_file
+from agent_compose_kit.tools.builders import build_tool_registry_from_config
+from agent_compose_kit.agents.builders_registry import build_agent_registry_from_config
 
 
 def test_build_registries_from_appconfig(tmp_path: Path):
@@ -38,4 +38,3 @@ def test_build_registries_from_appconfig(tmp_path: Path):
     assert getattr(a, "name", None) == "calculator"
     tools_list = getattr(a, "tools", [])
     assert any(getattr(t, "name", None) == "add" for t in tools_list)
-

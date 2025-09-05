@@ -6,6 +6,18 @@ from ..config.models import ArtifactServiceConfig, MemoryServiceConfig, SessionS
 
 
 def build_session_service(cfg: SessionServiceConfig):
+    """Construct and return a SessionService implementation.
+
+    Behavior:
+    - in_memory → InMemorySessionService
+    - redis → RedisSessionService when `redis_url` provided, else fall back to InMemory
+    - mongo → MongoSessionService when `mongo_url` provided, else fall back to InMemory
+    - database|db → DatabaseSessionService when `db_url` provided, else fall back to InMemory
+
+    Optional dependencies are imported lazily and guarded. When required
+    parameters are missing, the function conservatively returns an in-memory
+    implementation to avoid surprise external calls.
+    """
     t = cfg.type
     if t == "in_memory":
         from google.adk.sessions import InMemorySessionService  # type: ignore
@@ -40,6 +52,16 @@ def build_session_service(cfg: SessionServiceConfig):
 
 
 def build_artifact_service(cfg: ArtifactServiceConfig):
+    """Construct and return an ArtifactService implementation.
+
+    Behavior:
+    - in_memory → InMemoryArtifactService
+    - local_folder → LocalFolderArtifactService when `base_path` provided, else InMemory
+    - s3 → S3ArtifactService when `bucket_name` provided, else InMemory
+    - gcs → GcsArtifactService when `bucket_name` provided, else InMemory
+
+    Optional dependencies are imported lazily and guarded.
+    """
     t = cfg.type
     if t == "in_memory":
         from google.adk.artifacts import InMemoryArtifactService  # type: ignore
@@ -79,6 +101,14 @@ def build_artifact_service(cfg: ArtifactServiceConfig):
 
 
 def build_memory_service(cfg: MemoryServiceConfig | None):
+    """Construct and return a MemoryService implementation or None.
+
+    Behavior:
+    - None or type None → returns None (memory optional)
+    - in_memory → InMemoryMemoryService
+    - vertex_ai → VertexAiMemoryBankService when required params are present
+      (project, location, agent_engine_id); otherwise falls back to in-memory.
+    """
     if cfg is None or cfg.type is None:
         return None
     if cfg.type == "in_memory":

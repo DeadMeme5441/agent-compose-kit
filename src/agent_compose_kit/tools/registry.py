@@ -34,6 +34,7 @@ class ToolRegistry:
                 self._tool_specs_by_id[str(tid)] = t
 
     def get(self, tool_id: str) -> object:
+        """Return a built tool object for an id (cached)."""
         if tool_id in self._tools_by_id:
             return self._tools_by_id[tool_id]
         spec = self._tool_specs_by_id.get(tool_id)
@@ -46,6 +47,7 @@ class ToolRegistry:
         return inst
 
     def get_group(self, group_id: str) -> List[object]:
+        """Return a list of tool instances for a group id, de-duplicated."""
         ids = self._groups.get(group_id)
         if ids is None:
             raise KeyError(f"Tool group id not found: {group_id}")
@@ -59,6 +61,7 @@ class ToolRegistry:
         return out
 
     def close_all(self) -> None:
+        """Close all tool instances that expose a `close()` method."""
         for obj in list(self._tools_by_id.values()):
             close = getattr(obj, "close", None)
             if callable(close):
@@ -66,4 +69,3 @@ class ToolRegistry:
                     close()
                 except Exception:
                     pass
-

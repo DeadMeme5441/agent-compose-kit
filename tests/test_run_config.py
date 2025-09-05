@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from src.config.models import AppConfig, RuntimeConfig
-from src.runtime.supervisor import build_run_config
+from agent_compose_kit.config.models import AppConfig, RuntimeConfig
+from agent_compose_kit.runtime.supervisor import build_run_config
 
 
 def test_run_config_mapping_defaults():
@@ -12,4 +12,3 @@ def test_run_config_mapping_defaults():
     assert getattr(rc, "save_input_blobs_as_artifacts") is True
     # streaming_mode is enum; ensure it's set (not None)
     assert getattr(rc, "streaming_mode") is not None
-

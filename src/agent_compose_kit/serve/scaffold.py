@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Scaffolding utilities for exposing agents via ADK's FastAPI adapter.
+
+Functions here generate a lightweight agents wrapper module and an app.py that
+delegates to `google.adk.cli.fast_api.get_fast_api_app`, plus a simple Dockerfile
+for containerization.
+"""
+
 from pathlib import Path
 from typing import Optional
 
@@ -17,7 +24,23 @@ agent_reg = build_agent_registry_from_config(
     cfg, base_dir=CFG_PATH.parent, provider_defaults=cfg.model_providers, tool_registry=tool_reg
 )
 # Select your root agent (by id or group)
-root_agent = agent_reg.get("parent") if cfg.agents_registry else agent_reg.get_group("core")[0]
+try:
+    root_agent = agent_reg.get_group("core")[0]
+except Exception:
+    try:
+        root_agent = agent_reg.get("parent")
+    except Exception:
+        # Fallback: first declared agent id
+        ids = [a.get("id") for a in (cfg.agents_registry.get("agents") or []) if a.get("id")]
+        if not ids:
+            raise RuntimeError("No agents found in agents_registry to select root agent")
+        root_agent = agent_reg.get(ids[0])
+
+# Normalize the agent name for runners and adapters
+try:
+    root_agent.name = "root_agent"
+except Exception:
+    pass
 """
 
 
@@ -75,11 +98,11 @@ def write_adk_wrapper(
     package_import: str = "agent_compose_kit",
     copy_config: bool = True,
 ) -> Path:
-    """Create agents_dir/<system_name>/agent.py that exposes root_agent built from YAML.
+    """Create agents/<system_name>/agent.py that exposes `root_agent` built from YAML.
 
-    - package_import: base import path for this library (use "src" for local dev).
-    - copy_config: when True, copy the YAML to the wrapper folder as config.yaml.
-    Returns the created folder path.
+    - package_import: base import path for this library (use "src" for local dev)
+    - copy_config: copy the YAML to the wrapper folder as config.yaml when True
+    Returns: Path to the created system folder under agents_dir.
     """
     agents_dir = agents_dir.resolve()
     sys_dir = agents_dir / system_name
@@ -93,6 +116,11 @@ def write_adk_wrapper(
 
 
 def write_fastapi_app_py(*, output_dir: Path, agents_dir: Path) -> Path:
+    """Write an app.py that boots ADK's FastAPI app.
+
+    Reads runtime config from environment variables (session/artifacts/memory URIs)
+    and sets CORS via ALLOW_ORIGINS when provided.
+    """
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     app_py = output_dir / "app.py"
@@ -101,8 +129,11 @@ def write_fastapi_app_py(*, output_dir: Path, agents_dir: Path) -> Path:
 
 
 def write_docker_scaffold(*, output_dir: Path, dist_name: str = "agent-compose-kit") -> Path:
+    """Write a simple Dockerfile that runs the ADK FastAPI app.
+
+    Installs google-adk[web], uvicorn, and the distributed package name (`dist_name`).
+    """
     output_dir = output_dir.resolve()
     dockerfile = output_dir / "Dockerfile"
     dockerfile.write_text(DOCKERFILE_TEMPLATE.format(dist=dist_name), encoding="utf-8")
     return dockerfile
-

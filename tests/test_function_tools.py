@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from src.config.models import AgentConfig
-from src.agents.builder import build_agents
+from agent_compose_kit.config.models import AgentConfig
+from agent_compose_kit.agents.builder import build_agents
 
 
 def helper_tool() -> str:  # used by dotted import
@@ -30,4 +30,3 @@ def test_function_tool_loading(monkeypatch):
     # google.adk.tools.FunctionTool sets name attribute
     tool_names = [getattr(t, "name", None) for t in getattr(a, "tools", [])]
     assert "ht" in tool_names
-

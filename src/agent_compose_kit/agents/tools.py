@@ -35,6 +35,7 @@ def list_paths(glob: str = "**/*", base_dir: str | None = None, limit: int = 500
 
 def read_text(path: str, max_bytes: int = 20000) -> str:
     """Read a text file up to max_bytes.
+
     Returns a best-effort UTF-8 decode; truncates if too large.
     """
     p = Path(path)

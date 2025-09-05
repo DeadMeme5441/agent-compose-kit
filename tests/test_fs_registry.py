@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from src.config.models import AppConfig, AgentConfig
-from src.registry.fs import save_system, list_systems, list_versions, load_system, promote
+from agent_compose_kit.config.models import AppConfig, AgentConfig
+from agent_compose_kit.registry.fs import save_system, list_systems, list_versions, load_system, promote
 
 
 def test_fs_registry_save_load_promote(tmp_path: Path):
@@ -19,4 +19,3 @@ def test_fs_registry_save_load_promote(tmp_path: Path):
 
     promoted = promote("demo", "v1", "latest", root=tmp_path)
     assert promoted.exists()
-

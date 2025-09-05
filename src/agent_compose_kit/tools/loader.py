@@ -5,6 +5,11 @@ from typing import Any, Dict, List, Optional
 
 
 def _import_dotted(ref: str):
+    """Import and return an attribute from a dotted path 'module:attr' or raise.
+
+    This function strictly expects 'module:attr' and raises ValueError when the
+    format is invalid. Missing attributes raise ImportError with context.
+    """
     if ":" not in ref:
         raise ValueError(f"Invalid dotted reference '{ref}', expected 'module:attr'")
     mod_name, attr = ref.split(":", 1)
@@ -16,6 +21,7 @@ def _import_dotted(ref: str):
 
 
 def _ensure_list_filter(v: Any) -> Optional[List[str]]:
+    """Validate a tool filter value is a list[str] or None."""
     if v is None:
         return None
     if isinstance(v, list) and all(isinstance(x, str) for x in v):
@@ -147,6 +153,7 @@ def load_tool_entry(entry: Any, *, base_dir: Path, toolsets_map: Optional[Dict[s
 
 
 def load_toolsets_map(cfg_toolsets: Dict[str, Any], *, base_dir: Path) -> Dict[str, object]:
+    """Build a name→toolset map from a shared `toolsets:` config block."""
     out: Dict[str, object] = {}
     for name, spec in cfg_toolsets.items():
         out[name] = load_tool_entry(spec, base_dir=base_dir, toolsets_map=None)
@@ -154,6 +161,7 @@ def load_toolsets_map(cfg_toolsets: Dict[str, Any], *, base_dir: Path) -> Dict[s
 
 
 def load_tool_list(entries: List[Any], *, base_dir: Path, toolsets_map: Optional[Dict[str, object]] = None) -> List[object]:
+    """Load tool/toolset entries into concrete tool objects."""
     tools: List[object] = []
     for e in entries or []:
         tools.append(load_tool_entry(e, base_dir=base_dir, toolsets_map=toolsets_map))

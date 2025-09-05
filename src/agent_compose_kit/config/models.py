@@ -22,6 +22,7 @@ ServiceType = Literal[
 
 
 class SessionServiceConfig(BaseModel):
+    """Config for SessionService backends (in-memory, redis, mongo, database)."""
     type: Literal["in_memory", "redis", "mongo", "vertex_ai", "db", "database"] = "in_memory"
     # redis
     redis_url: Optional[str] = None
@@ -35,6 +36,7 @@ class SessionServiceConfig(BaseModel):
 
 
 class ArtifactServiceConfig(BaseModel):
+    """Config for ArtifactService backends (in-memory, local, s3, gcs)."""
     type: Literal["in_memory", "gcs", "s3", "local_folder"] = "in_memory"
     # gcs
     bucket_name: Optional[str] = None
@@ -50,11 +52,13 @@ class ArtifactServiceConfig(BaseModel):
 
 
 class MemoryServiceConfig(BaseModel):
+    """Config for MemoryService (in-memory or Vertex AI Memory Bank)."""
     type: Optional[Literal["in_memory", "vertex_ai"]] = None
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
 class MCPServerConfig(BaseModel):
+    """Legacy MCP server config (not used directly by loaders)."""
     name: str
     host: str
     port: int
@@ -63,6 +67,7 @@ class MCPServerConfig(BaseModel):
 
 
 class RuntimeConfig(BaseModel):
+    """Runtime tuning for runs (streaming mode, limits, artifact capture)."""
     streaming_mode: Optional[Literal["NONE", "SSE", "BIDI"]] = None
     max_llm_calls: Optional[int] = None
     save_input_blobs_as_artifacts: Optional[bool] = None
@@ -70,24 +75,44 @@ class RuntimeConfig(BaseModel):
 
 
 class AgentConfig(BaseModel):
+    """Agent definition for building LlmAgent instances.
+
+    Supports advanced LlmAgent fields like description, include_contents,
+    output_key, generate_content_config, planner, code_executor, and
+    structured input/output schemas via dotted imports.
+    """
     name: str
     model: Any  # string or mapping (e.g., {type: litellm, model: "openai/gpt-4o", api_base: ...})
     instruction: Optional[str] = None
+    description: Optional[str] = None
     tools: List[Any] = Field(default_factory=list)  # may be string or dict entries
     sub_agents: List[str] = Field(default_factory=list)
+    # Advanced LlmAgent options (all optional, passed through when present)
+    include_contents: Optional[str] = None  # 'default' | 'none'
+    output_key: Optional[str] = None
+    generate_content_config: Dict[str, Any] = Field(default_factory=dict)
+    # Planners and code execution (optional, guarded by availability)
+    planner: Optional[Dict[str, Any]] = None  # e.g., {type: built_in, thinking_config:{...}} | {type: plan_react}
+    code_executor: Optional[str] = None  # dotted ref to a BaseCodeExecutor factory or instance
+    # Structured IO (Python: dotted refs to Pydantic BaseModel classes)
+    input_schema: Optional[str] = None
+    output_schema: Optional[str] = None
 
 
 class GroupConfig(BaseModel):
+    """Simple named group for convenience, mapping to agent names."""
     name: str
     members: List[str]
 
 
 class WorkflowConfig(BaseModel):
+    """Workflow composition (sequential, parallel, loop) over agent names."""
     type: Optional[Literal["sequential", "parallel", "loop"]] = None
     nodes: List[str] = Field(default_factory=list)
 
 
 class AppConfig(BaseModel):
+    """Top-level application config loaded from YAML."""
     services: Dict[str, Any] = Field(default_factory=dict)
     session_service: SessionServiceConfig = Field(default_factory=SessionServiceConfig)
     artifact_service: ArtifactServiceConfig = Field(default_factory=ArtifactServiceConfig)
@@ -104,9 +129,12 @@ class AppConfig(BaseModel):
     groups: List[GroupConfig] = Field(default_factory=list)
     mcp: List[MCPServerConfig] = Field(default_factory=list)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
+    # Optional root-level instruction applied to the root agent
+    global_instruction: Optional[str] = None
 
 
 def _interpolate_env(text: str) -> str:
+    """Substitute ${VAR} and $VAR sequences with environment values."""
     def repl(match: "re.Match[str]") -> str:  # type: ignore[name-defined]
         var = match.group(1) or match.group(2)
         return os.environ.get(var, "")
@@ -118,6 +146,10 @@ def _interpolate_env(text: str) -> str:
 
 
 def load_config_file(path: Path) -> AppConfig:
+    """Load an AppConfig from a YAML file with env interpolation.
+
+    Also supports back-compat for services nested under a `services:` block.
+    """
     raw = Path(path).read_text(encoding="utf-8")
     raw = _interpolate_env(raw)
     data = yaml.safe_load(raw) or {}
@@ -156,6 +188,7 @@ runtime:
 
 
 def write_example_config(path: Path) -> None:
+    """Write a minimal example config YAML to the target path."""
     path.write_text(EXAMPLE_YAML + "\n", encoding="utf-8")
 
 

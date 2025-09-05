@@ -1,4 +1,4 @@
-from src.tools.registry import ToolRegistry
+from agent_compose_kit.tools.registry import ToolRegistry
 
 
 class _DummyTool:
@@ -16,4 +16,3 @@ def test_tool_registry_close_all(tmp_path):
     reg._tools_by_id["x"] = dummy  # inject dummy instance
     reg.close_all()
     assert dummy.closed is True
-

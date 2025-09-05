@@ -43,6 +43,7 @@ class AgentRegistry:
                 self._groups[str(gid)] = [str(x) for x in include]
 
     def _resolve_tools(self, tools_entries: List[Any]) -> List[object]:
+        """Resolve tool entries including references into concrete tool objects."""
         out: List[object] = []
         for e in tools_entries or []:
             if isinstance(e, dict) and isinstance(e.get("use"), str) and e["use"].startswith("registry:"):
@@ -56,6 +57,7 @@ class AgentRegistry:
         return out
 
     def get(self, agent_id: str) -> object:
+        """Return a built agent for the given registry id (cached)."""
         if agent_id in self._agents:
             return self._agents[agent_id]
         spec = self._agent_specs_by_id.get(agent_id)
@@ -80,8 +82,8 @@ class AgentRegistry:
         return agent
 
     def get_group(self, group_id: str) -> List[object]:
+        """Return a list of agents for a group id, in declared order."""
         ids = self._groups.get(group_id)
         if ids is None:
             raise KeyError(f"Agent group id not found: {group_id}")
         return [self.get(aid) for aid in ids]
-

@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from src.agents import tools as util
-from src.config.models import AppConfig, AgentConfig
+from agent_compose_kit.agents import tools as util
+from agent_compose_kit.config.models import AppConfig, AgentConfig
 
 
 def test_list_read_search(tmp_path: Path):
@@ -42,4 +42,3 @@ def test_validate_plan_graph(tmp_path: Path):
 
     dot = util.graph_flow(str(p), dot=True)
     assert dot.startswith("digraph flow")
-

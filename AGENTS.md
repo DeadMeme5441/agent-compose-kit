@@ -139,6 +139,16 @@ agents_registry:
       include: [calc]
 ```
 
+## Public API (for external CLI projects)
+- `SystemManager(base_dir)`: load config, select `root_agent`, build `Runner`.
+- `SessionManager(runner)`: create/get sessions for a user.
+- `run_text(...)`: async generator yielding ADK events for a text input.
+- `event_to_minimal_json(event)`: lightweight event serialization for terminals/UIs.
+- Paths via env:
+  - `AGENT_SYS_DIR` (default `./systems`)
+  - `AGENT_OUTPUTS_DIR` (default `./outputs`)
+  - `AGENT_SESSIONS_URI` (default `sqlite:///./sessions.db`)
+
 ## Roadmap (M1 → M3)
 - M1: Add Database session mapping (DONE); conservative fallbacks (DONE); MCP/OpenAPI toolset loaders; JSON Schema export; filesystem registry helpers; expanded tests; docs.
 - M2: YAML overlays/partials; instruction templating helpers; examples gallery.

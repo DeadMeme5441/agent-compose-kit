@@ -1,9 +1,22 @@
 [project]
-name = "template-agent-builder"
+name = "agent-compose-kit"
 version = "0.1.0"
-description = "Add your description here"
+description = "Core library to compose, validate, and run ADK agent systems from YAML."
 readme = "README.md"
 requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [ { name = "DeadMeme5441" } ]
+[project.urls]
+Homepage = "https://github.com/DeadMeme5441/agent-compose-kit"
+Repository = "https://github.com/DeadMeme5441/agent-compose-kit"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Development Status :: 3 - Alpha",
+  "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
@@ -12,6 +25,11 @@ dependencies = [
     "adk-extra-services>=0.1.0", # optional: redis/mongo/s3/local services
     "litellm>=1.76.2",
 ]
+
+[project.optional-dependencies]
+web = ["fastapi>=0.111", "uvicorn[standard]>=0.30"]
+tools = ["mcp>=1.2.0"]
+dev = ["pytest>=8.4.2", "ruff>=0.12.12", "build>=1.2.2", "twine>=5.1.1"]
 
 [tool.ruff]
 target-version = "py312"
@@ -27,4 +45,21 @@ testpaths = ["tests"]
 dev = [
     "pytest>=8.4.2",
     "ruff>=0.12.12",
+]
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_compose_kit"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/agent_compose_kit",
+  "pyproject.toml",
+  "README.md",
+  "LICENSE*",
+  "templates",
+  "configs",
 ]

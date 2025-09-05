@@ -5,11 +5,18 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 
 def get_app():
-    """Return a FastAPI app that exposes validate/run/stream APIs.
+    """Return a FastAPI app that exposes validate/run/stream endpoints.
 
-    This thin server uses this package's YAML/registry builders and ADK Runner
-    under the hood. FastAPI is an optional dependency; importing this module
-    requires FastAPI to be installed.
+    Endpoints:
+    - GET /health → {ok: true}
+    - POST /validate → {ok: true, plan: str}
+    - POST /runs → {run_id, session_id}
+    - GET /runs/{run_id}/events → SSE stream of ADK events
+
+    Notes:
+    - Builds services, registries, and a root agent named `root_agent`.
+    - Applies `global_instruction` to the root agent when present.
+    - FastAPI is an optional dependency (import guarded).
     """
     try:
         from fastapi import FastAPI, HTTPException
@@ -37,11 +44,6 @@ def get_app():
         config_path: Optional[str] = None
         config_inline: Optional[str] = None
 
-        @field_validator("config_path", "config_inline")
-        @classmethod
-        def _non_empty(cls, v):
-            return v
-
     class RunRequest(BaseModel):
         user_id: str
         text: str
@@ -56,15 +58,26 @@ def get_app():
         return {"ok": True}
 
     @app.post("/validate")
-    def validate(req: ValidateRequest):
-        cfg = _load_cfg(req)
+    def validate(req: Optional[ValidateRequest] = None, config_path: Optional[str] = None, config_inline: Optional[str] = None):
+        cfg = _load_cfg(req=req, config_path=config_path, config_inline=config_inline)
         plan = build_plan(cfg)
         return {"ok": True, "plan": plan}
 
     @app.post("/runs")
-    def start_run(req: RunRequest):
-        cfg = _load_cfg(req)
-        base_dir = Path(req.config_path).resolve().parent if req.config_path else Path(".").resolve()
+    def start_run(
+        req: Optional[RunRequest] = None,
+        user_id: Optional[str] = None,
+        text: Optional[str] = None,
+        session_id: Optional[str] = None,
+        config_path: Optional[str] = None,
+        config_inline: Optional[str] = None,
+    ):
+        cfg = _load_cfg(req=req, config_path=config_path, config_inline=config_inline)
+        base_dir = (
+            Path(req.config_path).resolve().parent
+            if (req and req.config_path)
+            else (Path(config_path).resolve().parent if config_path else Path(".").resolve())
+        )
 
         # Build services
         artifact_svc = build_artifact_service(cfg.artifact_service)
@@ -96,6 +109,11 @@ def get_app():
             if not agent_map:
                 raise HTTPException(status_code=400, detail="No agents defined")
             root = agent_map[cfg.agents[0].name]
+        # Normalize root agent name
+        try:
+            setattr(root, "name", "root_agent")
+        except Exception:
+            pass
 
         # Construct Runner
         try:
@@ -117,20 +135,28 @@ def get_app():
         import asyncio
 
         async def _ensure_session():
-            s_id = req.session_id
+            s_id = (req.session_id if req else None) or session_id
             if not s_id:
-                s = await runner.session_service.create_session(app_name=runner.app_name, user_id=req.user_id)
+                s = await runner.session_service.create_session(app_name=runner.app_name, user_id=(req.user_id if req else user_id))
                 return s.id
             return s_id
 
         session_id = asyncio.run(_ensure_session())
+        # Apply global instruction if configured
+        if getattr(cfg, "global_instruction", None):
+            try:
+                setattr(root, "global_instruction", cfg.global_instruction)
+            except Exception:
+                pass
+
         run_id = _gen_id()
         runs[run_id] = {
             "runner": runner,
             "rc": rc,
-            "user_id": req.user_id,
+            "user_id": (req.user_id if req else user_id),
             "session_id": session_id,
-            "text": req.text,
+            "text": (req.text if req else text),
+            "tool_reg": tool_reg,
         }
         return {"run_id": run_id, "session_id": session_id}
 
@@ -164,11 +190,17 @@ def get_app():
 
         return StreamingResponse(_gen(), media_type="text/event-stream")
 
-    def _load_cfg(req: ValidateRequest | RunRequest) -> AppConfig:
-        if getattr(req, "config_path", None):
-            return load_config_file(Path(req.config_path))
-        if getattr(req, "config_inline", None):
+    def _load_cfg(req: Optional[ValidateRequest | RunRequest] = None, *, config_path: Optional[str] = None, config_inline: Optional[str] = None) -> AppConfig:
+        if req and getattr(req, "config_path", None):
+            return load_config_file(Path(getattr(req, "config_path")))
+        if req and getattr(req, "config_inline", None):
             raw = getattr(req, "config_inline")
+            data = yaml.safe_load(raw) or {}
+            return AppConfig.model_validate(data)
+        if config_path:
+            return load_config_file(Path(config_path))
+        if config_inline:
+            raw = config_inline
             data = yaml.safe_load(raw) or {}
             return AppConfig.model_validate(data)
         raise HTTPException(status_code=400, detail="config_path or config_inline required")
@@ -204,4 +236,3 @@ def get_app():
         return json.dumps(d)
 
     return app
-
