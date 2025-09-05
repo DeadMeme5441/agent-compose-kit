@@ -5,14 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "click>=8.1",
     "pydantic>=2.7",
     "pyyaml>=6.0",
     # The following are runtime deps for full functionality; install via uv if preferred
     "google-adk>=0.1.0", # provides Runner, LlmAgent, services
     "adk-extra-services>=0.1.0", # optional: redis/mongo/s3/local services
-    "textual>=6.1.0",
-    "textual-dev>=1.7.0",
     "litellm>=1.76.2",
 ]
 
@@ -30,6 +27,4 @@ testpaths = ["tests"]
 dev = [
     "pytest>=8.4.2",
     "ruff>=0.12.12",
-    "textual>=6.1.0",
-    "textual-dev>=1.7.0",
 ]

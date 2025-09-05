@@ -7,23 +7,15 @@
 - Configs: `configs/` (YAML describing agents, groups, services, MCP, runtime).
 - Purpose: YAML-driven wrapper around `google-adk` to build agents and agent groups, wiring MCP connections, `SessionService`, and `ArtifactService` (adk-extra-services).
 
-## Build, Test, and Development Commands
-- Use uv (ephemeral deps):
-  - Help: `uv run python -m src.main --help`
-  - Init: `uv run python -m src.main init`
-  - Validate: `uv run python -m src.main validate configs/app.yaml`
-  - Plan: `uv run python -m src.main plan configs/app.yaml`
-  - Graph: `uv run python -m src.main graph configs/app.yaml [--dot]`
-  - Run (Gemini only): `uv run --with google-adk python -m src.main run configs/app.yaml`
-  - Run (with extra services): `uv run --with google-adk --with adk-extra-services python -m src.main run configs/app.yaml`
+## Build, Test, and Development
 - Lint: `uv run --with ruff ruff check .`  •  Format: `uv run --with ruff ruff format .`
 - Test: `uv run --with pytest pytest -q`
 
-## Terminal UI (Textual)
-- Library: `textual` + `textual-dev` for a rich TUI (widgets, command palette, dev console).
-- Stub: `uv run --with textual --with textual-dev python -m src.tui` to launch a minimal TUI. Keybindings: p (plan), v (validate), r (run), q (quit).
-- Devtools: `textual run --dev python -m src.tui` (live CSS reload) and `textual console` for logs.
-- Roadmap: flows dashboard, YAML editor (TextArea), run monitor (DataTable), artifacts browser (see FULL_IMPLEMENTATION_PLAN.md).
+## Terminal UI
+Not included. This repository is core-only and exposes a programmatic API for YAML-driven agent/workflow construction.
+
+## Project Settings
+Not included. This repository focuses strictly on the core config-driven library.
 
 ## Coding Style & Naming Conventions
 - PEP 8, 4 spaces, max line length 100.
@@ -96,10 +88,8 @@
 ## Dev Workflow (Fresh Start)
 - `uv sync` to install deps; add new ones with `uv add <pkg>` (use `--dev` for dev tools).
 - Run tests: `uv run --with pytest pytest -q` (should pass out-of-the-box).
-- Validate a config: `uv run python -m src.main validate configs/app.yaml`.
 - Extend features:
   - Services: `src/services/factory.py`
   - Config models: `src/config/models.py`
   - Agents/tools: `src/agents/builder.py`
   - Runner logic: `src/runtime/supervisor.py`
-  - CLI: `src/cli.py`; TUI: `src/tui.py`

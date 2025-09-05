@@ -8,16 +8,28 @@ import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 
-ServiceType = Literal["in_memory", "redis", "mongo", "vertex_ai", "db", "gcs", "s3", "local_folder"]
+ServiceType = Literal[
+    "in_memory",
+    "redis",
+    "mongo",
+    "vertex_ai",
+    "db",
+    "database",
+    "gcs",
+    "s3",
+    "local_folder",
+]
 
 
 class SessionServiceConfig(BaseModel):
-    type: Literal["in_memory", "redis", "mongo", "vertex_ai", "db"] = "in_memory"
+    type: Literal["in_memory", "redis", "mongo", "vertex_ai", "db", "database"] = "in_memory"
     # redis
     redis_url: Optional[str] = None
     # mongo
     mongo_url: Optional[str] = None
     db_name: Optional[str] = None
+    # database (sqlalchemy URL)
+    db_url: Optional[str] = None
     # vertex ai / db may need extra fields; keep generic for now
     params: Dict[str, Any] = Field(default_factory=dict)
 
