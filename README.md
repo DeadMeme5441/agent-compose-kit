@@ -88,6 +88,21 @@ rc = build_run_config(cfg)
 # Use runner in your application according to ADK docs
 ```
 
+Registries (Tools & Agents)
+- Define reusable tools and agents in your config, then build registries:
+```python
+from pathlib import Path
+from src.config.models import load_config_file
+from src.tools.builders import build_tool_registry_from_config
+from src.agents.builders_registry import build_agent_registry_from_config
+
+cfg = load_config_file(Path("configs/app.yaml"))
+tool_reg = build_tool_registry_from_config(cfg, base_dir=".")
+agent_reg = build_agent_registry_from_config(cfg, base_dir=".", provider_defaults=cfg.model_providers, tool_registry=tool_reg)
+
+root = agent_reg.get("parent")  # or agent_reg.get_group("core")[0]
+```
+
 YAML Example
 ```yaml
 services:
@@ -124,6 +139,17 @@ Project Structure
 - `src/services/factory.py` — session/artifact/memory service builders.
 - `src/agents/builder.py` — model resolution (string/LiteLLM), function tools, sub-agent wiring.
 - `src/tools/loader.py` — unified loader for function/MCP/OpenAPI tools and shared toolsets.
+- `src/tools/registry.py` — global ToolRegistry (ids, groups, caching, close_all).
+- `src/agents/registry.py` — global AgentRegistry (ids, groups, sub-agent wiring).
+- `src/agents/builders_registry.py` — helpers to build AgentRegistry from AppConfig.
+- `src/tools/builders.py` — helpers to build ToolRegistry from AppConfig.
+- `src/registry/fs.py` — filesystem helpers for saving/loading systems.
+
+Schema & Registry
+- Export AppConfig JSON schema programmatically:
+  - `from src.config.models import export_app_config_schema`
+- Save/load system configs:
+  - `from src.registry.fs import save_system, load_system, list_systems, list_versions, promote`
 - `src/runtime/supervisor.py` — plan summary, Runner construction, RunConfig mapping.
 - `templates/app.yaml` — example config template.
 

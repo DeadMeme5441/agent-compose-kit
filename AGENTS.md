@@ -8,6 +8,7 @@ Core Python library to compose and run Google ADK agent systems from YAML. No CL
 - Config: `pyproject.toml` (Python 3.12+, pytest + ruff).
 - Tests: `tests/` (unit/integration, guarded for external deps).
 - Configs: `configs/` and `templates/` for examples.
+ - Registries: define under `tools_registry:` and `agents_registry:` in AppConfig, or separate YAML and merge into config.
 
 ## Development
 - Lint: `uv run --with ruff ruff check .`
@@ -104,6 +105,39 @@ Notes
 ## Optional Deps
 - MCP toolset (stdio) requires `mcp` package.
 - MCP/OpenAPI require appropriate `google-adk` extras (ensure installed).
+
+## Registries
+- Tools Registry (global):
+  - `tools_registry:` section in AppConfig with `tools` (each has `id`, `type`, and type-specific fields) and `groups` (`id` + `include` tool ids).
+  - Build with `build_tool_registry_from_config(cfg)` and reuse across agents.
+- Agents Registry (global):
+  - `agents_registry:` section in AppConfig with `agents` (`id`, `model`, `instruction?`, `tools?`, `sub_agents?`) and `groups`.
+  - Tool references inside agents can use `{use: registry:<tool_id>}` to pull from Tools Registry.
+  - Build with `build_agent_registry_from_config(cfg, tool_registry=...)`.
+- Lifecycle: call `ToolRegistry.close_all()` when done (e.g., on shutdown) to close toolset connections.
+
+Example snippets
+```yaml
+tools_registry:
+  tools:
+    - id: util.add
+      type: function
+      ref: tests.helpers:sample_tool
+      name: add
+  groups:
+    - id: essentials
+      include: [util.add]
+
+agents_registry:
+  agents:
+    - id: calc
+      name: calculator
+      model: gemini-2.0-flash
+      tools: [{use: registry:util.add}]
+  groups:
+    - id: core
+      include: [calc]
+```
 
 ## Roadmap (M1 → M3)
 - M1: Add Database session mapping (DONE); conservative fallbacks (DONE); MCP/OpenAPI toolset loaders; JSON Schema export; filesystem registry helpers; expanded tests; docs.

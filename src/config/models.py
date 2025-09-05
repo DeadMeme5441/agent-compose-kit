@@ -97,6 +97,9 @@ class AppConfig(BaseModel):
     model_providers: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     # Optional shared toolsets that agents can reference by name via {use: <key>}
     toolsets: Dict[str, Any] = Field(default_factory=dict)
+    # Optional global registries
+    tools_registry: Dict[str, Any] = Field(default_factory=dict)
+    agents_registry: Dict[str, Any] = Field(default_factory=dict)
     agents: List[AgentConfig] = Field(default_factory=list)
     groups: List[GroupConfig] = Field(default_factory=list)
     mcp: List[MCPServerConfig] = Field(default_factory=list)
@@ -154,3 +157,8 @@ runtime:
 
 def write_example_config(path: Path) -> None:
     path.write_text(EXAMPLE_YAML + "\n", encoding="utf-8")
+
+
+def export_app_config_schema() -> dict:
+    """Return JSON schema for AppConfig for external validators/IDEs."""
+    return AppConfig.model_json_schema()
