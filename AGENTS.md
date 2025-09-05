@@ -1,95 +1,75 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-- Source: `src/main.py` (no root `main.py`).
-- Config: `pyproject.toml` (Python 3.12; Ruff + pytest configured).
-- Tests: `tests/` (e.g., `tests/test_main.py`).
-- Configs: `configs/` (YAML describing agents, groups, services, MCP, runtime).
-- Purpose: YAML-driven wrapper around `google-adk` to build agents and agent groups, wiring MCP connections, `SessionService`, and `ArtifactService` (adk-extra-services).
+## Scope & Purpose
+Core Python library to compose and run Google ADK agent systems from YAML. No CLI/TUI. Programmatic API only.
 
-## Build, Test, and Development
-- Lint: `uv run --with ruff ruff check .`  •  Format: `uv run --with ruff ruff format .`
-- Test: `uv run --with pytest pytest -q`
+## Structure
+- Source: `src/` (library modules), entry placeholder at `src/main.py`.
+- Config: `pyproject.toml` (Python 3.12+, pytest + ruff).
+- Tests: `tests/` (unit/integration, guarded for external deps).
+- Configs: `configs/` and `templates/` for examples.
 
-## Terminal UI
-Not included. This repository is core-only and exposes a programmatic API for YAML-driven agent/workflow construction.
+## Development
+- Lint: `uv run --with ruff ruff check .`
+- Format: `uv run --with ruff ruff format .`
+- Tests: `uv run --with pytest pytest -q`
 
-## Project Settings
-Not included. This repository focuses strictly on the core config-driven library.
+## Coding Style
+- PEP 8, 4‑space indent, 100 char line length.
+- Imports grouped stdlib → third‑party → local.
+- Type hints on public functions; Pydantic models for config.
 
-## Coding Style & Naming Conventions
-- PEP 8, 4 spaces, max line length 100.
-- Names: `snake_case` (functions/vars), `PascalCase` (classes), lower_case modules.
-- Imports: stdlib → third‑party → local; keep sorted; blank lines between groups.
-- Type hints required on public functions; prefer dataclasses/pydantic models for config.
+## Current Capabilities
+- Config (Pydantic) with env interpolation and provider defaults (`model_providers`).
+- Services:
+  - Sessions: `InMemorySessionService` (default), `RedisSessionService`, `MongoSessionService`, `DatabaseSessionService`.
+  - Artifacts: `InMemoryArtifactService` (default), `LocalFolderArtifactService`, `S3ArtifactService`, `GcsArtifactService`.
+  - Memory: `InMemoryMemoryService` (default), `VertexAiMemoryBankService` (falls back to in‑memory if params missing).
+- Agents: direct model IDs or LiteLLM models; function tools; sub‑agent wiring.
+- Workflows: `sequential|parallel|loop` composition.
+- Runtime: YAML → `RunConfig`; helper to construct `Runner`.
 
-## YAML Config Model (Planned)
-- `agents[]`: name, model, instruction, tools, optional `sub_agents` (for groups).
-- `services`: `session_service` (in_memory | redis | mongo | vertex_ai | db), `artifact_service` (in_memory | gcs | s3 | local_folder) with backend params.
-- `mcp`: outbound MCP servers to consume as tools (host/port/auth/allowlist).
-- `runtime`: `RunConfig` options (streaming_mode, max_llm_calls, save_input_blobs_as_artifacts, speech).
-- `model_providers`: defaults per LiteLLM provider (e.g., `openai`, `ollama_chat`) merged into agent models.
- - `workflow`: `{type: sequential|parallel|loop, nodes: [agent names]}` to compose multi-agent flows.
-- Example:
-  ```yaml
-  services:
-    session_service: {type: redis, redis_url: redis://localhost:6379}
-    artifact_service: {type: s3, bucket_name: my-bucket, endpoint_url: https://s3.amazonaws.com}
-  agents:
-    - name: planner
-      model: gemini-2.0-flash  # or LiteLLM wrapper below
-      tools: [load_memory]
-    - name: openai_agent
-      model:
-        type: litellm
-        model: openai/gpt-4o-mini
-        # api_base: http://localhost:11434/v1   # for Ollama via OpenAI shim
-        # api_key: ${OPENAI_API_KEY}
-  model_providers:
-    openai:
-      api_key: ${OPENAI_API_KEY}
-    ollama_chat:
-      api_base: ${OLLAMA_API_BASE}
-  groups:
-    - name: build_pipeline
-      members: [planner]
-  runtime: {streaming_mode: SSE, max_llm_calls: 200}
-  mcp:
-    - name: db_toolbox
-      host: localhost
-      port: 8000
-  ```
+## Design Principles
+- Conservative defaults: missing required params → fall back to in‑memory services (no surprise external calls).
+- Provider‑agnostic models: LiteLLM wrapper with provider defaults, explicit values win.
+- Separation of concerns: config → factories → runtime, testable at each layer.
 
-## Service Wiring (Implementation Plan)
-- Sessions: map YAML → `InMemorySessionService` | `RedisSessionService` | `MongoSessionService` | `VertexAiSessionService`.
-- Artifacts: map YAML → `InMemoryArtifactService` | `GcsArtifactService` | `S3ArtifactService` | `LocalFolderArtifactService`.
-- Runner: `Runner(agent=..., session_service=..., artifact_service=..., memory_service=optional)`; compose groups via `sub_agents`.
+## YAML Config Model
+- `agents[]`: name, model, instruction, tools, optional `sub_agents`.
+- `services`:
+  - `session_service`: `in_memory | redis | mongo | database` (+ params)
+  - `artifact_service`: `in_memory | local_folder | s3 | gcs` (+ params)
+  - `memory_service`: `in_memory | vertex_ai` (+ params; falls back if missing)
+- `model_providers`: defaults per LiteLLM provider (e.g., `openai`, `ollama_chat`, `anthropic`).
+- `workflow`: `{type: sequential|parallel|loop, nodes: [agent names]}`
+- `runtime`: `streaming_mode, max_llm_calls, save_input_blobs_as_artifacts, speech?`
+- `tools[]` (function now; MCP/OpenAPI planned):
+  - Function: `{type: function, ref: module:callable, name?}`
 
-## Testing Guidelines
-- Pytest; tests in `tests/test_*.py`; mock external services (Redis/Mongo/S3/MCP).
-- Aim ≥90% coverage for new code; validate YAML schema + error paths.
+## Service Wiring
+- Sessions: YAML → InMemory/Redis/Mongo/Database.
+- Artifacts: YAML → InMemory/Local/S3/GCS.
+- Memory: YAML → InMemory/Vertex AI (guarded fallback).
+- Runner: `Runner(agent=..., artifact_service=..., session_service=..., memory_service=optional)`.
 
-## Commit & PR Guidelines
-- Conventional Commits (e.g., `feat: load services from yaml`).
-- PRs must include: summary, linked issues, example YAML, and local run steps; ensure `ruff` + tests pass.
+## Tools
+- Function tools: dotted imports wrapped as `FunctionTool` with optional name override.
+- Planned: MCP toolset (stdio or HTTP/SSE) and OpenAPI toolset (spec→tools) with allowlists.
 
-## Using llms_docs MCP for google-adk
-- Steps: list sources → open “Google ADK” → fetch pages.
-- Useful pages: MCP (`docs/mcp/index.md`), Sessions/Memory (`docs/sessions/*.md`), Artifacts (`docs/artifacts/index.md`), Runtime (`docs/runtime/runconfig.md`).
-- Use this to align YAML → ADK services/tools precisely before implementation.
+## Testing
+- Unit tests: config/env, factories (with fallbacks), model resolution, function tools, workflows, run config.
+- Integration: in‑memory runs; skip cloud-backed paths without creds.
+- Commands:
+  - `uv run --with pytest pytest -q`
 
-## LiteLLM Models (Any Provider)
-- Enable with YAML `model: {type: litellm, model: provider/model-id, api_base?, api_key?}`.
-- Examples:
-  - OpenAI: set `OPENAI_API_KEY`; model `openai/gpt-4o-mini`.
-  - Ollama (local): set `OPENAI_API_BASE=http://localhost:11434/v1` and `OPENAI_API_KEY=anything`; model `openai/mistral-small3.1`.
-  - Anthropic direct: set `ANTHROPIC_API_KEY`; model `anthropic/claude-3-5-sonnet-latest`.
+## Roadmap (M1 → M3)
+- M1: Add Database session mapping (DONE); conservative fallbacks (DONE); MCP/OpenAPI toolset loaders; JSON Schema export; filesystem registry helpers; expanded tests; docs.
+- M2: YAML overlays/partials; instruction templating helpers; examples gallery.
+- M3: Observability helpers (Arize/Phoenix); evaluation hooks; isolation options; deployment samples (external repos).
 
-## Dev Workflow (Fresh Start)
-- `uv sync` to install deps; add new ones with `uv add <pkg>` (use `--dev` for dev tools).
-- Run tests: `uv run --with pytest pytest -q` (should pass out-of-the-box).
-- Extend features:
-  - Services: `src/services/factory.py`
-  - Config models: `src/config/models.py`
-  - Agents/tools: `src/agents/builder.py`
-  - Runner logic: `src/runtime/supervisor.py`
+## PR Guidelines
+- Conventional Commits.
+- PRs should include: summary, example YAML, test updates, and passing CI (ruff + pytest).
+
+## References
+- ADK docs topics: Sessions/State/Memory, Artifacts, RunConfig, Agents, Tools (function/MCP/OpenAPI).
