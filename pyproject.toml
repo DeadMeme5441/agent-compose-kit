@@ -14,9 +14,7 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Topic :: Software Development :: Libraries",
 ]
-[project.urls]
-Homepage = "https://github.com/DeadMeme5441/agent-compose-kit"
-Repository = "https://github.com/DeadMeme5441/agent-compose-kit"
+[project]
 dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
@@ -63,3 +61,7 @@ include = [
   "templates",
   "configs",
 ]
+
+[project.urls]
+Homepage = "https://github.com/DeadMeme5441/agent-compose-kit"
+Repository = "https://github.com/DeadMeme5441/agent-compose-kit"
