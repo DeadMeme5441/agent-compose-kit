@@ -6,9 +6,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [ { name = "DeadMeme5441" } ]
-[project.urls]
-Homepage = "https://github.com/DeadMeme5441/agent-compose-kit"
-Repository = "https://github.com/DeadMeme5441/agent-compose-kit"
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
@@ -17,6 +14,9 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Topic :: Software Development :: Libraries",
 ]
+[project.urls]
+Homepage = "https://github.com/DeadMeme5441/agent-compose-kit"
+Repository = "https://github.com/DeadMeme5441/agent-compose-kit"
 dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
