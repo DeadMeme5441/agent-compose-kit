@@ -29,6 +29,44 @@ Core Python library to compose and run Google ADK agent systems from YAML. No CL
 - Workflows: `sequential|parallel|loop` composition.
 - Runtime: YAML → `RunConfig`; helper to construct `Runner`.
 
+## Unified Tools
+- Function tool (Python): `{type: function, ref: module:callable, name?}` wraps a Python callable as a tool. Use MCP/OpenAPI for cross-language.
+- MCP toolset: `{type: mcp, mode: stdio|sse|streamable_http, ...}` connects to an MCP server and provides its tools to the agent. Supports `tool_filter` and timeouts.
+- OpenAPI toolset: `{type: openapi, spec: {inline|path}, spec_type: json|yaml, tool_filter?}` generates REST API tools from an OpenAPI spec.
+- Shared toolsets: top-level `toolsets:` map for reuse, referenced by `{use: name}` in an agent’s `tools` list.
+
+Example
+```yaml
+toolsets:
+  files:
+    type: mcp
+    mode: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "./workspace"]
+    tool_filter: [list_directory, read_file]
+
+agents:
+  - name: worker
+    model: gemini-2.0-flash
+    instruction: Use tools.
+    tools:
+      - {type: function, ref: tests.helpers:sample_tool, name: add}
+      - {use: files}
+
+  - name: api
+    model: gemini-2.0-flash
+    tools:
+      - type: openapi
+        spec:
+          path: ./specs/petstore.yaml
+        spec_type: yaml
+```
+
+Notes
+- Paths under `spec.path` resolve relative to the config file directory.
+- MCP stdio mode requires the `mcp` package (and any MCP server prerequisites). Remote modes require explicit `url` and optional headers.
+- OpenAPI `spec.url` is not fetched by the loader (avoid silent network I/O). Use `path` or `inline` content.
+
 ## Design Principles
 - Conservative defaults: missing required params → fall back to in‑memory services (no surprise external calls).
 - Provider‑agnostic models: LiteLLM wrapper with provider defaults, explicit values win.
@@ -61,6 +99,11 @@ Core Python library to compose and run Google ADK agent systems from YAML. No CL
 - Integration: in‑memory runs; skip cloud-backed paths without creds.
 - Commands:
   - `uv run --with pytest pytest -q`
+  - Cloud-backed tests (e.g., GCS) are skipped unless credentials are present.
+
+## Optional Deps
+- MCP toolset (stdio) requires `mcp` package.
+- MCP/OpenAPI require appropriate `google-adk` extras (ensure installed).
 
 ## Roadmap (M1 → M3)
 - M1: Add Database session mapping (DONE); conservative fallbacks (DONE); MCP/OpenAPI toolset loaders; JSON Schema export; filesystem registry helpers; expanded tests; docs.

@@ -1,7 +1,7 @@
 # Project Progress
 
 ## Summary
-This repository now scaffolds a YAML‑driven wrapper around Google ADK with provider‑agnostic model support (Gemini + LiteLLM), service factories (sessions/artifacts/memory), basic workflow composition, function tools, and a graph utility. TUI and CLI have been removed to keep this project core‑only. A test suite covers core library behaviors.
+This repository now scaffolds a YAML‑driven wrapper around Google ADK with provider‑agnostic model support (Gemini + LiteLLM), service factories (sessions/artifacts/memory), basic workflow composition, unified tools loading (function/MCP/OpenAPI), and a graph utility. TUI and CLI have been removed to keep this project core‑only. A test suite covers core library behaviors.
 
 ## Implemented
 - Config
@@ -16,7 +16,7 @@ This repository now scaffolds a YAML‑driven wrapper around Google ADK with pro
   - LiteLLM models with provider defaults (OpenAI, Anthropic, Ollama, vLLM).
 - Agents & Workflows
   - `LlmAgent` leaves; `workflow` YAML composes Sequential/Parallel/Loop agents.
-  - Function tools via `{type:function, ref: module:function, name?}`.
+  - Tools: unified loader for function tools, MCP toolsets, and OpenAPI toolsets; shared `toolsets:` map and `{use: name}` references.
 - Runtime
   - YAML `runtime` → ADK `RunConfig` (streaming mode, max calls, artifact capture).
 - CLI
@@ -24,7 +24,7 @@ This repository now scaffolds a YAML‑driven wrapper around Google ADK with pro
 - TUI
   - Removed. Focus is core library only.
 - Tests (pytest)
-  - Unit tests: config/env, run config, function tools, workflow composition.
+  - Unit tests: config/env, run config, services factory, function tools, tools loader, workflow composition.
 
 ## How to Use
 - Setup: `uv sync`
@@ -32,13 +32,13 @@ This repository now scaffolds a YAML‑driven wrapper around Google ADK with pro
 
 ## Next Milestones
 - M1 finish
-  - Expand tests: workflow edge cases, graph output, error paths.
+  - Expand tests: workflow edge cases, graph output, error paths; docs for tools.
 - M2
-  - MCP client tools (attach allowlisted tools from servers) and OpenAPI tools.
   - Registry: list/show/tag/export/import; run history & sessions.
+  - Optional: auth mapping helpers for OpenAPI/MCP; JSON Schema export.
 - M3
   - Dynamic spawn mechanics with policy & quotas; optional process isolation.
-  - Evaluation hooks and CI workflows.
+  - Evaluation hooks and CI workflows; observability helpers.
 
 ## Dev Notes
 - Add dependencies: `uv add <package>` (use `--dev` for dev tools).

@@ -76,10 +76,11 @@ Workflows
   - `loop` → `LoopAgent(...)`
 - If not present, default root to the first defined agent.
 
-Tools
+Tools (Unified Loader)
 - Function tools: dotted import → `FunctionTool`, optional name override.
-- MCP toolsets: YAML → `MCPToolset` with `StdioConnectionParams` or streamable HTTP/SSE; optional `tool_filter`.
-- OpenAPI toolsets: YAML spec (inline/file/url) → `OpenAPIToolset` → generated `RestApiTool`s; optional auth + tool filtering.
+- MCP toolsets: YAML → `McpToolset` with stdio/SSE/streamable HTTP connection params; optional `tool_filter`.
+- OpenAPI toolsets: YAML spec (inline/path) → `OpenAPIToolset` → generated `RestApiTool`s; optional tool filtering.
+- Shared toolsets: top-level `toolsets:` and `{use: name}` references in agents.
 
 
 ## 6) Runtime & Sessions
@@ -155,11 +156,11 @@ Skip/Mark
 
 ## 13) Roadmap & Milestones
 M1 (Core hardening)
-- Add `database` and `vertex_ai` session service mappings.
-- Implement MCP/OpenAPI toolset loaders + YAML wiring.
+- Add `database` session service mapping (DONE).
+- Implement MCP/OpenAPI toolset loaders + YAML wiring (DONE).
 - Add JSON Schema export for `AppConfig`.
 - Implement filesystem registry helpers.
-- Expand tests to cover new factories and toolsets.
+- Expand tests to cover new factories and toolsets (DONE for loader & services).
 
 M2 (Composition & UX)
 - YAML overlays/partials and merge strategy.
@@ -222,4 +223,3 @@ M3 (Advanced)
 ## 18) Out‑of‑Scope Notes
 - No UI or CLI shipped here; consumers can build atop this library.
 - No heavy deployment code; only doc pointers and minimal examples.
-

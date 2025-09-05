@@ -17,10 +17,49 @@ Design notes
 - Conservative by default: when required service parameters are not provided, factories fall back to in-memory implementations (never attempt network/local resources silently).
 - Provider defaults: `model_providers` merge into LiteLLM configs (e.g., OpenAI keys, API base) without overwriting explicit values.
 
+Tools
+- Function tools: `{type: function, ref: "module:callable", name?}`. The callable must be Python; for cross-language tools use MCP/OpenAPI below.
+- MCP toolsets: connect to MCP servers via stdio/SSE/HTTP and expose their tools to agents.
+- OpenAPI toolsets: generate `RestApiTool`s from an OpenAPI spec (inline/path); agents can call REST APIs directly.
+- Shared toolsets: define once under `toolsets:` and reference from agents with `{use: name}`.
+
+YAML Examples (Tools)
+```yaml
+toolsets:
+  # Reusable MCP toolset via stdio (requires `mcp` package installed)
+  fs_tools:
+    type: mcp
+    mode: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "./sandbox"]
+    tool_filter: [list_directory, read_file]
+
+agents:
+  - name: planner
+    model: gemini-2.0-flash
+    instruction: Use tools when appropriate.
+    tools:
+      # Function tool (Python callable)
+      - {type: function, ref: tests.helpers:sample_tool, name: add}
+      # Reuse shared toolset
+      - {use: fs_tools}
+
+  - name: api_caller
+    model: gemini-2.0-flash
+    instruction: Use REST API tools.
+    tools:
+      - type: openapi
+        spec:
+          path: ./specs/petstore.yaml  # or inline: "{...}" (json/yaml)
+        spec_type: yaml  # json|yaml; inferred from path extension when omitted
+        tool_filter: []
+```
+
 Requirements
 - Python 3.12+
 - Optional extras at runtime depending on backends:
   - google-adk, adk-extra-services, litellm
+  - For MCP stdio mode: `mcp` package (and any server requirements)
 
 Install (dev)
 - uv sync
@@ -84,6 +123,7 @@ Project Structure
 - `src/config/models.py` — Pydantic models, env interpolation, example writer.
 - `src/services/factory.py` — session/artifact/memory service builders.
 - `src/agents/builder.py` — model resolution (string/LiteLLM), function tools, sub-agent wiring.
+- `src/tools/loader.py` — unified loader for function/MCP/OpenAPI tools and shared toolsets.
 - `src/runtime/supervisor.py` — plan summary, Runner construction, RunConfig mapping.
 - `templates/app.yaml` — example config template.
 
