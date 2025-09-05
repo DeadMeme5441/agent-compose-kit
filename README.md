@@ -103,6 +103,23 @@ agent_reg = build_agent_registry_from_config(cfg, base_dir=".", provider_default
 root = agent_reg.get("parent")  # or agent_reg.get_group("core")[0]
 ```
 
+Serve as API (ADK FastAPI)
+- Generate an ADK wrapper module so `adk run`/`adk web` can load your root agent:
+```python
+from pathlib import Path
+from src.serve.scaffold import write_adk_wrapper, write_fastapi_app_py, write_docker_scaffold
+
+agents_dir = Path("./agents"); agents_dir.mkdir(exist_ok=True)
+write_adk_wrapper(agents_dir=agents_dir, system_name="my_system", config_path=Path("configs/app.yaml"), package_import="src", copy_config=True)
+write_fastapi_app_py(output_dir=Path("."), agents_dir=agents_dir)
+```
+- Run the API locally:
+  - `uvicorn app:app --host 0.0.0.0 --port 8000`
+  - Or use ADK directly: `adk run agents/my_system` (interactive) or start FastAPI via ADK CLI.
+- Containerize (optional):
+  - `write_docker_scaffold(output_dir=Path("."), dist_name="agent-compose-kit")`
+  - `docker build -t my-system . && docker run -p 8000:8000 my-system`
+
 YAML Example
 ```yaml
 services:
