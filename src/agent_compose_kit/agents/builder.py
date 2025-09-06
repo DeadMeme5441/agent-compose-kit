@@ -54,6 +54,7 @@ def build_agents(
     provider_defaults: Mapping[str, Dict[str, Any]] | None = None,
     base_dir: str | None = None,
     shared_toolsets: Mapping[str, Any] | None = None,
+    a2a_clients: Mapping[str, Any] | None = None,
 ):
     """Build concrete LlmAgent instances from AgentConfig entries.
 
@@ -74,6 +75,47 @@ def build_agents(
     temp: Dict[str, Any] = {}
     pending_tools: Dict[str, List[Any]] = {}
     for cfg in agent_cfgs:
+        if getattr(cfg, "kind", "llm") == "a2a_remote":
+            # Build a RemoteA2aAgent using client info from a2a_clients map
+            if not a2a_clients:
+                raise ValueError("a2a_clients mapping required to build a2a_remote agents")
+            client_id = cfg.client
+            if not client_id or client_id not in a2a_clients:
+                raise ValueError(f"Unknown a2a client id: {client_id}")
+            c = a2a_clients[client_id]
+            def _get(obj, key):
+                v = getattr(obj, key, None)
+                if v is None and isinstance(obj, dict):
+                    v = obj.get(key)
+                return v
+            url = _get(c, "url")
+            headers = _get(c, "headers") or {}
+            timeout = _get(c, "timeout")
+            try:
+                try:
+                    from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # type: ignore
+                except Exception:
+                    from google.adk.agents import RemoteA2aAgent  # type: ignore
+            except Exception as e:  # pragma: no cover - optional dep
+                raise ImportError("A2A support not available in google-adk") from e
+
+            # Try common constructor variants
+            agent = None
+            for kwargs_variant in (
+                {"name": cfg.name, "base_url": url, "instruction": cfg.instruction or "", "headers": headers, "timeout": timeout},
+                {"name": cfg.name, "url": url, "instruction": cfg.instruction or "", "headers": headers, "timeout": timeout},
+                {"name": cfg.name, "base_url": url, "instruction": cfg.instruction or ""},
+            ):
+                try:
+                    agent = RemoteA2aAgent(**{k: v for k, v in kwargs_variant.items() if v is not None})
+                    break
+                except TypeError:
+                    continue
+            if agent is None:
+                raise TypeError("Failed to construct RemoteA2aAgent with supported parameters")
+            temp[cfg.name] = agent
+            pending_tools[cfg.name] = []
+            continue
         model_obj = _resolve_model(cfg.model, provider_defaults)
         tools = load_tool_list(cfg.tools or [], base_dir=base, toolsets_map=toolsets_map)
 
