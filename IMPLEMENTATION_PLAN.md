@@ -40,8 +40,12 @@ DX & docs
 - README: new config blocks + examples; templates for MCP/OpenAPI/A2A.
 
 Phases
-1) Schema models + validation helpers + docs.
-2) McpRegistry + loader/agent-registry wiring + tests.
-3) OpenAPIRegistry + URL allowlist fetch + tests.
-4) A2A remote agent + tests.
-5) /lint diagnostics + server QoL (SSE keepalive) + tests.
+✓ 1) Schema models + validation helpers + docs.
+✓ 2) McpRegistry + loader/agent-registry wiring + tests.
+✓ 3) OpenAPIRegistry + URL allowlist fetch + tests.
+✓ 4) A2A remote agent + tests.
+✓ 5) /lint diagnostics + server QoL (SSE keepalive, /graph, cancel) + tests.
+
+Next
+6) Server registry wiring: construct registries at startup and pass to loaders; close_all on shutdown.
+7) Templates/Docs expansion for MCP/OpenAPI/A2A quickstarts; optional strict lint; prep release.

@@ -2,29 +2,33 @@ Resume Session Guide
 ====================
 
 Snapshot
-- Core repo: agent-compose-kit (library-only). New files: IMPLEMENTATION_PLAN.md (A2A + MCP/OpenAPI registries), AGENTS.md (concise agent flow). Scripts added for cross‑repo bootstrap/project, but this repo remains infra‑agnostic.
-- Decisions: UI = React + Vite SPA with Bun; TUI = Textual; Backend = FastAPI + Postgres + Redis/Arq + S3-compatible. Core repo focuses on YAML→ADK, A2A remote consume, MCP/OpenAPI registries, validation, and dev server QoL.
+- Core repo: agent-compose-kit (library-only). IMPLEMENTATION_PLAN.md and AGENTS.md present. Phases 1–5 implemented (schema+validation, MCP/OpenAPI registries, A2A remote, server QoL).
+- Decisions: UI = React + Vite SPA with Bun; TUI = Textual; Backend = FastAPI + Postgres + Redis/Arq + S3-compatible. This repo focuses on YAML→ADK, remote consume, registries, validation, and dev server QoL.
 
 Next Builds (this repo)
-1) Schema: add AppConfig.a2a_clients, mcp_registry, openapi_registry; AgentConfig.kind (llm|a2a_remote) + client.
-2) MCP Registry (SSE-first; stdio/http optional): tools/mcp_registry.py; loader + agent-registry integration; validate + tests.
-3) OpenAPI Registry (URL/path/inline + allowlist): tools/openapi_registry.py; loader + agent‑registry; validate + tests.
-4) A2A remote agent: builder support for kind=a2a_remote; validate + tests.
-5) Lint server: /schema, /lint diagnostics, /graph, cancel; SSE keepalive; tests (guarded on fastapi/adk).
+✓ 1) Schema: AppConfig.a2a_clients, mcp_registry, openapi_registry; AgentConfig.kind (llm|a2a_remote) + client.
+✓ 2) MCP Registry (SSE-first; stdio/http optional): tools/mcp_registry.py; loader + agent-registry integration; validate + tests.
+✓ 3) OpenAPI Registry (URL/path/inline + allowlist): tools/openapi_registry.py; loader + agent‑registry; validate + tests.
+✓ 4) A2A remote agent: builder support for kind=a2a_remote; validate + tests.
+✓ 5) Server QoL: /schema, /lint diagnostics, /graph, /runs/{id}/cancel; SSE keepalive; tests (guarded on fastapi/adk).
+
+Up Next
+6) Server registry wiring: construct MCP/OpenAPI registries on startup when present and pass into loader calls; ensure close_all on shutdown.
+7) Examples/templates: add MCP/OpenAPI/A2A snippets to templates/app.yaml and README quickstarts.
+8) Optional: strict lint E501 pass or tune line-length, and prep a tagged release.
 
 Environment & Conventions
 - Python 3.12; uv for deps; loguru for logging (optional); pytest (unit+integration; guard optional deps); ruff for lint/format; Conventional Commits.
 
 Fresh Session Checklist
-1) Read IMPLEMENTATION_PLAN.md and AGENTS.md.
+1) Read IMPLEMENTATION_PLAN.md, AGENTS.md, README changes.
 2) Ensure GitHub PAT (scopes: repo, project). gh auth status; gh auth refresh -s project.
-3) Create branch (no worktree):
-   git checkout -b feat/a2a-mcp-openapi-phase-1
-4) Setup: uv sync --all-extras --dev
-5) Implement Phase 1; write docstrings; keep optional imports guarded with friendly errors.
-6) Tests: uv run pytest -q (unit first, then guarded integration).
-7) Lint/format: uv run ruff check . && uv run ruff format .
-8) Push + PR: git push -u origin HEAD; gh pr create -f; ensure CI green; gh pr merge --squash when ready.
+3) Setup: uv sync --all-extras --dev
+4) Implement next items (see Up Next); add Google-style docstrings; guard optional deps.
+5) Tests: uv run pytest -q (unit first, then guarded/skipped integration).
+6) Lint/format: uv run ruff check . && uv run ruff format .
+7) Docs: update README/templates with examples as needed.
+8) PR or direct commit (as agreed): push and ensure CI green; merge.
 
 Docs & References
 - ADK MCP: google/adk-python mcp_toolset + mcp_session_manager.
