@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
 from urllib.parse import urlparse
 
 from ..config.models import ArtifactServiceConfig, MemoryServiceConfig, SessionServiceConfig
@@ -63,16 +62,16 @@ def build_session_service(cfg: SessionServiceConfig):
         return MongoSessionService(connection_string=cfg.mongo_url, database_name=cfg.db_name or "adk_sessions")
     if t in {"db", "database", "sql"}:
         # SQL-backed sessions via extras
-        from google_adk_extras.sessions import SQLSessionService  # type: ignore
         from google.adk.sessions import InMemorySessionService  # type: ignore
+        from google_adk_extras.sessions import SQLSessionService  # type: ignore
 
         db_url = cfg.db_url or (cfg.params.get("db_url") if cfg.params else None)
         if not db_url:
             return InMemorySessionService()
         return SQLSessionService(database_url=db_url)
     if t == "yaml_file":
-        from google_adk_extras.sessions import YamlFileSessionService  # type: ignore
         from google.adk.sessions import InMemorySessionService  # type: ignore
+        from google_adk_extras.sessions import YamlFileSessionService  # type: ignore
 
         base = cfg.base_path or (cfg.params.get("base_path") if cfg.params else None)
         if not base:

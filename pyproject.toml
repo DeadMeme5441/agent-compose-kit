@@ -19,9 +19,8 @@ dependencies = [
     "pyyaml>=6.0",
     # The following are runtime deps for full functionality; install via uv if preferred
     "google-adk>=0.1.0", # provides Runner, LlmAgent, core services
-    "google-adk-extras>=0.1.0", # sessions/artifacts/memory extras (redis/mongo/sql/s3/yaml)
+    "google-adk-extras>=0.1.1", # sessions/artifacts/memory extras (redis/mongo/sql/s3/yaml)
     "litellm>=1.76.2",
-    "google-adk-extras>=0.1.1",
 ]
 
 [project.optional-dependencies]

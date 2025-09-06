@@ -24,19 +24,19 @@ def get_app():
     except Exception as e:  # pragma: no cover - optional dep
         raise ImportError("FastAPI is required to use the server module") from e
 
-    from pydantic import BaseModel, field_validator
     import yaml
+    from pydantic import BaseModel
 
-    from ..config.models import load_config_file, AppConfig
-    from ..tools.builders import build_tool_registry_from_config
-    from ..agents.builders_registry import build_agent_registry_from_config
     from ..agents.builder import build_agents
+    from ..agents.builders_registry import build_agent_registry_from_config
+    from ..config.models import AppConfig, load_config_file
+    from ..runtime.supervisor import build_plan, build_run_config
     from ..services.factory import (
         build_artifact_service,
-        build_session_service,
         build_memory_service,
+        build_session_service,
     )
-    from ..runtime.supervisor import build_plan, build_run_config
+    from ..tools.builders import build_tool_registry_from_config
 
     app = FastAPI(title="agent-compose-kit server", version="0.1.0")
 
@@ -118,7 +118,6 @@ def get_app():
         # Construct Runner
         try:
             from google.adk.runners import Runner  # type: ignore
-            from google.genai import types  # type: ignore
         except Exception as e:  # pragma: no cover - optional dep
             raise HTTPException(status_code=500, detail="google-adk is required") from e
 

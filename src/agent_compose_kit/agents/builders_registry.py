@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Dict
+from typing import Dict, Mapping
 
 from ..config.models import AppConfig
 from .registry import AgentRegistry

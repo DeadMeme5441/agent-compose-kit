@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
 from ..config.models import AgentConfig
 from ..tools.loader import load_tool_list, load_toolsets_map
-from pathlib import Path
 
 
 def _resolve_model(model_spec: Any, provider_defaults: Mapping[str, Dict[str, Any]] | None = None):

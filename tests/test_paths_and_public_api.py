@@ -1,8 +1,9 @@
-from pathlib import Path
 import importlib.util
+from pathlib import Path
 
 import pytest
 
+from agent_compose_kit.api.public import event_to_minimal_json
 from agent_compose_kit.paths import (
     get_outputs_root,
     get_sessions_uri,
@@ -10,7 +11,6 @@ from agent_compose_kit.paths import (
     resolve_outputs_dir,
     resolve_system_dir,
 )
-from agent_compose_kit.api.public import event_to_minimal_json
 
 
 def test_paths_defaults_and_resolvers(tmp_path: Path, monkeypatch):
@@ -66,7 +66,7 @@ def test_event_to_minimal_json_serialization():
 )
 def test_system_manager_root_naming_with_workflow(tmp_path: Path):
     # Only run when google-adk is present; otherwise skip to avoid heavy deps
-    from agent_compose_kit.config.models import AppConfig, AgentConfig, WorkflowConfig
+    from agent_compose_kit.config.models import AgentConfig, AppConfig, WorkflowConfig
     from agent_compose_kit.runtime.supervisor import build_runner_from_yaml
 
     cfg = AppConfig(

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping
 
-from .builder import _resolve_model  # reuse model resolution
 from ..tools.loader import load_tool_entry
+from .builder import _resolve_model  # reuse model resolution
 
 
 class AgentRegistry:

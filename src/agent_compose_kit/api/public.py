@@ -13,13 +13,13 @@ Surfaces:
 """
 
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, Mapping, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 
-from ..config.models import AppConfig, load_config_file
-from ..tools.builders import build_tool_registry_from_config
-from ..agents.builders_registry import build_agent_registry_from_config
 from ..agents.builder import build_agents
+from ..agents.builders_registry import build_agent_registry_from_config
+from ..config.models import AppConfig, load_config_file
 from ..runtime.supervisor import build_run_config
+from ..tools.builders import build_tool_registry_from_config
 
 
 class SystemManager:
@@ -90,12 +90,13 @@ class SystemManager:
         return root
 
     def build_runner(self, cfg: AppConfig, *, root_agent: Optional[object] = None):
+        from google.adk.runners import Runner  # type: ignore
+
         from ..services.factory import (
             build_artifact_service,
-            build_session_service,
             build_memory_service,
+            build_session_service,
         )
-        from google.adk.runners import Runner  # type: ignore
 
         artifact_svc = build_artifact_service(cfg.artifact_service)
         session_svc = build_session_service(cfg.session_service)

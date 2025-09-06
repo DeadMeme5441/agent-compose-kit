@@ -37,3 +37,5 @@ artifacts_storage/
 # Local configs generated at runtime (keep templates under templates/)
 configs/*.yaml
 !templates/
+scripts/
+AGENTS.md

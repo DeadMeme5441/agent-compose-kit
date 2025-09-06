@@ -8,8 +8,6 @@ for containerization.
 """
 
 from pathlib import Path
-from typing import Optional
-
 
 AGENT_WRAPPER_TEMPLATE = """\
 from pathlib import Path

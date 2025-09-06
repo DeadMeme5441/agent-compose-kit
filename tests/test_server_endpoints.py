@@ -29,6 +29,7 @@ def test_server_validate_and_start_run(tmp_path: Path):
     cfg.write_text("agents: [{name: a, model: gemini-2.0-flash}]\n", encoding="utf-8")
 
     from fastapi.testclient import TestClient
+
     from agent_compose_kit.server.app import get_app
 
     app = get_app()
