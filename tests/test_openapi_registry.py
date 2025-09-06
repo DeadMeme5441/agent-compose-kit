@@ -3,9 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from agent_compose_kit.config.models import AppConfig, OpenApiRegistryConfig, OpenApiApiConfig, RegistryGroup
-from agent_compose_kit.tools.openapi_registry import OpenAPIRegistry
+from agent_compose_kit.config.models import (
+    AppConfig,
+    OpenApiApiConfig,
+    OpenApiRegistryConfig,
+    RegistryGroup,
+)
 from agent_compose_kit.tools.loader import load_tool_list
+from agent_compose_kit.tools.openapi_registry import OpenAPIRegistry
 
 
 def _has(mod: str) -> bool:
