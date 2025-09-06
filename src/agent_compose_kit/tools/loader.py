@@ -34,6 +34,8 @@ def load_tool_entry(
     *,
     base_dir: Path,
     toolsets_map: Optional[Dict[str, object]] = None,
+    mcp_registry: Any | None = None,
+    openapi_registry: Any | None = None,
 ) -> object:
     """Load a single tool or toolset from YAML entry.
 
@@ -46,11 +48,46 @@ def load_tool_entry(
     # Reference to a named toolset
     if isinstance(entry, dict) and "use" in entry:
         if toolsets_map is None:
+            # Support registry references when toolsets_map is not used
+            name = str(entry["use"]).strip()
+            if name.startswith("mcp:"):
+                if not mcp_registry:
+                    raise ValueError("McpRegistry not provided for 'use: mcp:<id>'")
+                return mcp_registry.get(name.split(":", 1)[1])
+            if name.startswith("mcp_group:"):
+                if not mcp_registry:
+                    raise ValueError("McpRegistry not provided for 'use: mcp_group:<id>'")
+                return mcp_registry.get_group(name.split(":", 1)[1])
+            if name.startswith("openapi:"):
+                if not openapi_registry:
+                    raise ValueError("OpenAPIRegistry not provided for 'use: openapi:<id>'")
+                return openapi_registry.get(name.split(":", 1)[1])
+            if name.startswith("openapi_group:"):
+                if not openapi_registry:
+                    raise ValueError("OpenAPIRegistry not provided for 'use: openapi_group:<id>'")
+                return openapi_registry.get_group(name.split(":", 1)[1])
             raise ValueError("No toolsets map provided but 'use' was specified")
-        name = entry["use"]
-        if name not in toolsets_map:
-            raise ValueError(f"Unknown toolset reference: {name}")
-        return toolsets_map[name]
+        name = str(entry["use"]).strip()
+        if name in toolsets_map:
+            return toolsets_map[name]
+        # Allow passing through registry references even when map present
+        if name.startswith("mcp:"):
+            if not mcp_registry:
+                raise ValueError("McpRegistry not provided for 'use: mcp:<id>'")
+            return mcp_registry.get(name.split(":", 1)[1])
+        if name.startswith("mcp_group:"):
+            if not mcp_registry:
+                raise ValueError("McpRegistry not provided for 'use: mcp_group:<id>'")
+            return mcp_registry.get_group(name.split(":", 1)[1])
+        if name.startswith("openapi:"):
+            if not openapi_registry:
+                raise ValueError("OpenAPIRegistry not provided for 'use: openapi:<id>'")
+            return openapi_registry.get(name.split(":", 1)[1])
+        if name.startswith("openapi_group:"):
+            if not openapi_registry:
+                raise ValueError("OpenAPIRegistry not provided for 'use: openapi_group:<id>'")
+            return openapi_registry.get_group(name.split(":", 1)[1])
+        raise ValueError(f"Unknown toolset reference: {name}")
 
     if not isinstance(entry, dict):
         return entry
@@ -176,9 +213,21 @@ def load_tool_list(
     *,
     base_dir: Path,
     toolsets_map: Optional[Dict[str, object]] = None,
+    mcp_registry: Any | None = None,
+    openapi_registry: Any | None = None,
 ) -> List[object]:
     """Load tool/toolset entries into concrete tool objects."""
     tools: List[object] = []
     for e in entries or []:
-        tools.append(load_tool_entry(e, base_dir=base_dir, toolsets_map=toolsets_map))
+        obj = load_tool_entry(
+            e,
+            base_dir=base_dir,
+            toolsets_map=toolsets_map,
+            mcp_registry=mcp_registry,
+            openapi_registry=openapi_registry,
+        )
+        if isinstance(obj, list):
+            tools.extend(obj)
+        else:
+            tools.append(obj)
     return tools
