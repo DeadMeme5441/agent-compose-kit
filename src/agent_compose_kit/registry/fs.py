@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from ..config.models import AppConfig
 
@@ -50,7 +50,6 @@ def list_versions(name: str, *, root: str | Path = "registry") -> List[str]:
 
 def load_system(name: str, version: str, *, root: str | Path = "registry") -> AppConfig:
     """Load a saved AppConfig for system/version from the filesystem registry."""
-    import yaml
 
     cfg_path = _sys_dir(Path(root).resolve(), name) / version / "config.yaml"
     if not cfg_path.exists():

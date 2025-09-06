@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Literal, Optional
 import yaml
 from pydantic import BaseModel, Field, ValidationError
 
-
 ServiceType = Literal[
     "in_memory",
     "redis",
@@ -117,6 +116,9 @@ class AgentConfig(BaseModel):
     structured input/output schemas via dotted imports.
     """
     name: str
+    # Phase 1: support remote A2A client kind
+    kind: Literal["llm", "a2a_remote"] = "llm"
+    client: Optional[str] = None  # required when kind=a2a_remote
     model: Any  # string or mapping (e.g., {type: litellm, model: "openai/gpt-4o", api_base: ...})
     instruction: Optional[str] = None
     description: Optional[str] = None
@@ -132,6 +134,11 @@ class AgentConfig(BaseModel):
     # Structured IO (Python: dotted refs to Pydantic BaseModel classes)
     input_schema: Optional[str] = None
     output_schema: Optional[str] = None
+
+    def model_post_init(self, __context: Any) -> None:  # type: ignore[override]
+        # Ensure client is provided when kind=a2a_remote
+        if self.kind == "a2a_remote" and not self.client:
+            raise ValueError("AgentConfig.client is required when kind='a2a_remote'")
 
 
 class GroupConfig(BaseModel):
@@ -166,6 +173,11 @@ class AppConfig(BaseModel):
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     # Optional root-level instruction applied to the root agent
     global_instruction: Optional[str] = None
+
+    # Phase 1 additions: external registries and A2A clients
+    a2a_clients: List["A2AClientConfig"] = Field(default_factory=list)
+    mcp_registry: Optional["McpRegistryConfig"] = None
+    openapi_registry: Optional["OpenApiRegistryConfig"] = None
 
 
 def _interpolate_env(text: str) -> str:
@@ -230,3 +242,159 @@ def write_example_config(path: Path) -> None:
 def export_app_config_schema() -> dict:
     """Return JSON schema for AppConfig for external validators/IDEs."""
     return AppConfig.model_json_schema()
+
+
+# =======================
+# Phase 1 new schema types
+# =======================
+
+
+class A2AClientConfig(BaseModel):
+    """Configuration for a remote A2A Agent endpoint consumed by this app.
+
+    Minimal shape for Phase 1; actual client wiring added in a later phase.
+    """
+    id: str
+    url: str
+    headers: Dict[str, Any] = Field(default_factory=dict)
+    timeout: Optional[float] = None
+    description: Optional[str] = None
+
+
+class McpRegistryServer(BaseModel):
+    id: str
+    mode: Literal["sse", "stdio", "http"] = "sse"
+    # SSE/HTTP
+    url: Optional[str] = None
+    headers: Dict[str, Any] = Field(default_factory=dict)
+    timeout: Optional[float] = None
+    sse_read_timeout: Optional[float] = None
+    # stdio
+    command: Optional[str] = None
+    args: List[str] = Field(default_factory=list)
+    env: Dict[str, str] = Field(default_factory=dict)
+    # filters and auth surface (forwarded to toolset later)
+    tool_filter: List[str] = Field(default_factory=list)
+    auth_scheme: Optional[str] = None
+    auth_credential: Optional[str] = None
+
+
+class RegistryGroup(BaseModel):
+    id: str
+    include: List[str] = Field(default_factory=list)
+
+
+class McpRegistryConfig(BaseModel):
+    servers: List[McpRegistryServer] = Field(default_factory=list)
+    groups: List[RegistryGroup] = Field(default_factory=list)
+
+
+class OpenApiAuthConfig(BaseModel):
+    """Auth configuration for OpenAPI toolsets.
+
+    - bearer: uses `value` as token
+    - header: use `name` and `value`
+    - query: use `name` and `value`
+    """
+    type: Literal["bearer", "header", "query"]
+    name: Optional[str] = None
+    value: Optional[str] = None
+
+
+class OpenApiApiConfig(BaseModel):
+    id: str
+    spec: Dict[str, Any]
+    spec_type: Literal["json", "yaml"] | None = None
+    headers: Dict[str, Any] = Field(default_factory=dict)
+    auth: Optional[OpenApiAuthConfig] = None
+    operation_filter: List[str] = Field(default_factory=list)
+    tag_filter: List[str] = Field(default_factory=list)
+    tool_filter: List[str] = Field(default_factory=list)
+    timeout: Optional[float] = None
+
+
+class OpenApiRegistryConfig(BaseModel):
+    fetch_allowlist: List[str] = Field(default_factory=list)
+    apis: List[OpenApiApiConfig] = Field(default_factory=list)
+    groups: List[RegistryGroup] = Field(default_factory=list)
+
+
+# ======================
+# Validation entry points
+# ======================
+
+
+def validate_app_config(cfg: AppConfig) -> List[str]:
+    """Validate cross-references and groups for Phase 1 registries.
+
+    Returns a list of human-readable diagnostics. Empty list means OK.
+    """
+    issues: List[str] = []
+
+    # Uniqueness for ids
+    def _check_dupes(items: List[str], label: str) -> None:
+        seen: Dict[str, int] = {}
+        for x in items:
+            seen[x] = seen.get(x, 0) + 1
+        for k, n in seen.items():
+            if n > 1:
+                issues.append(f"duplicate {label} id: {k}")
+
+    _check_dupes([a.id for a in cfg.a2a_clients], "a2a_client")
+    if cfg.mcp_registry:
+        _check_dupes([s.id for s in cfg.mcp_registry.servers], "mcp server")
+        # Group includes validity
+        valid = {s.id for s in cfg.mcp_registry.servers}
+        for g in cfg.mcp_registry.groups:
+            for ref in g.include:
+                if ref not in valid:
+                    issues.append(f"mcp group '{g.id}' includes unknown server id '{ref}'")
+
+    if cfg.openapi_registry:
+        _check_dupes([a.id for a in cfg.openapi_registry.apis], "openapi api")
+        valid = {a.id for a in cfg.openapi_registry.apis}
+        for g in cfg.openapi_registry.groups:
+            for ref in g.include:
+                if ref not in valid:
+                    issues.append(f"openapi group '{g.id}' includes unknown api id '{ref}'")
+
+        # If spec.url is used, ensure it is allowlisted
+        allow = cfg.openapi_registry.fetch_allowlist
+        if allow:
+            from urllib.parse import urlparse
+
+            for api in cfg.openapi_registry.apis:
+                spec = api.spec or {}
+                url = spec.get("url") if isinstance(spec, dict) else None
+                if url:
+                    host = urlparse(str(url)).netloc
+                    if not _host_allowlisted(host, allow):
+                        issues.append(
+                            f"openapi api '{api.id}' url host '{host}' not allowlisted"
+                        )
+
+    # Agent kind cross-checks
+    for a in cfg.agents:
+        if a.kind == "a2a_remote":
+            if not a.client:
+                issues.append(f"agent '{a.name}' requires 'client' when kind=a2a_remote")
+            elif all(c.id != a.client for c in cfg.a2a_clients):
+                issues.append(
+                    f"agent '{a.name}' references unknown a2a_client id '{a.client}'"
+                )
+
+    return issues
+
+
+def _host_allowlisted(host: str, allowlist: List[str]) -> bool:
+    """Simple hostname allowlist with wildcard prefix support (e.g., *.example.com)."""
+    host = host.lower()
+    for pat in allowlist:
+        p = pat.lower().strip()
+        if p == host:
+            return True
+        if p.startswith("*."):
+            suffix = p[1:]  # keep leading dot
+            if host.endswith(suffix):
+                return True
+    return False

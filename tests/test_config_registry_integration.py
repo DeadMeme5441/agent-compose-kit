@@ -1,11 +1,11 @@
 from pathlib import Path
 
-import yaml
 import pytest
+import yaml
 
+from agent_compose_kit.agents.builders_registry import build_agent_registry_from_config
 from agent_compose_kit.config.models import load_config_file
 from agent_compose_kit.tools.builders import build_tool_registry_from_config
-from agent_compose_kit.agents.builders_registry import build_agent_registry_from_config
 
 
 def test_build_registries_from_appconfig(tmp_path: Path):
