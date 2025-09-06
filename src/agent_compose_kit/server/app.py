@@ -29,7 +29,7 @@ def get_app():
 
     from ..agents.builder import build_agents
     from ..agents.builders_registry import build_agent_registry_from_config
-    from ..config.models import AppConfig, load_config_file
+    from ..config.models import AppConfig, load_config_file, export_app_config_schema, validate_app_config
     from ..runtime.supervisor import build_plan, build_run_config
     from ..services.factory import (
         build_artifact_service,
@@ -53,6 +53,11 @@ def get_app():
 
     runs: Dict[str, Dict[str, Any]] = {}
 
+    @app.get("/schema")
+    def schema():
+        """Return the AppConfig JSON schema for IDEs and tooling."""
+        return export_app_config_schema()
+
     @app.get("/health")
     def health():
         return {"ok": True}
@@ -62,6 +67,13 @@ def get_app():
         cfg = _load_cfg(req=req, config_path=config_path, config_inline=config_inline)
         plan = build_plan(cfg)
         return {"ok": True, "plan": plan}
+
+    @app.post("/lint")
+    def lint(req: Optional[ValidateRequest] = None, config_path: Optional[str] = None, config_inline: Optional[str] = None):
+        """Return normalized config and diagnostics for validation."""
+        cfg = _load_cfg(req=req, config_path=config_path, config_inline=config_inline)
+        diags = validate_app_config(cfg)
+        return {"ok": len(diags) == 0, "diagnostics": diags, "config": cfg.model_dump(mode="json")}
 
     @app.post("/runs")
     def start_run(
@@ -173,12 +185,49 @@ def get_app():
         from google.genai import types  # type: ignore
 
         async def _gen() -> AsyncGenerator[bytes, None]:
+            import asyncio
+
+            q: "asyncio.Queue[bytes]" = asyncio.Queue()
+            stop = asyncio.Event()
+
+            async def produce_events():
+                try:
+                    content = types.Content(role="user", parts=[types.Part(text=text)])
+                    async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content, run_config=rc):
+                        payload = _event_to_json(event)
+                        await q.put(f"data: {payload}\n\n".encode("utf-8"))
+                        if run.get("cancel"):
+                            break
+                finally:
+                    stop.set()
+
+            async def keepalive():
+                try:
+                    while not stop.is_set():
+                        await asyncio.sleep(15)
+                        await q.put(b": keepalive\n\n")
+                except asyncio.CancelledError:  # pragma: no cover
+                    pass
+
+            t1 = asyncio.create_task(produce_events())
+            t2 = asyncio.create_task(keepalive())
             try:
-                content = types.Content(role="user", parts=[types.Part(text=text)])
-                async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content, run_config=rc):
-                    payload = _event_to_json(event)
-                    yield f"data: {payload}\n\n".encode("utf-8")
+                while not stop.is_set() or not q.empty():
+                    try:
+                        item = await asyncio.wait_for(q.get(), timeout=1.0)
+                        yield item
+                    except asyncio.TimeoutError:
+                        continue
             finally:
+                t2.cancel()
+                try:
+                    await t2
+                except Exception:
+                    pass
+                try:
+                    await t1
+                except Exception:
+                    pass
                 # Cleanup tool registries if present
                 try:
                     tr = run.get("tool_reg")
@@ -188,6 +237,14 @@ def get_app():
                     pass
 
         return StreamingResponse(_gen(), media_type="text/event-stream")
+
+    @app.post("/runs/{run_id}/cancel")
+    def cancel_run(run_id: str):
+        run = runs.get(run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="run not found")
+        run["cancel"] = True
+        return {"ok": True}
 
     def _load_cfg(req: Optional[ValidateRequest | RunRequest] = None, *, config_path: Optional[str] = None, config_inline: Optional[str] = None) -> AppConfig:
         if req and getattr(req, "config_path", None):
