@@ -53,7 +53,6 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2" },
     { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.111" },
     { name = "google-adk", specifier = ">=0.1.0" },
-    { name = "google-adk-extras", specifier = ">=0.1.0" },
     { name = "google-adk-extras", specifier = ">=0.1.1" },
     { name = "litellm", specifier = ">=1.76.2" },
     { name = "mcp", marker = "extra == 'tools'", specifier = ">=1.2.0" },

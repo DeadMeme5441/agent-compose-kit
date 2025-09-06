@@ -91,15 +91,6 @@ class MemoryServiceConfig(BaseModel):
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
-class MCPServerConfig(BaseModel):
-    """Legacy MCP server config (not used directly by loaders)."""
-    name: str
-    host: str
-    port: int
-    token_env: Optional[str] = None
-    tool_allowlist: List[str] = Field(default_factory=list)
-
-
 class RuntimeConfig(BaseModel):
     """Runtime tuning for runs (streaming mode, limits, artifact capture)."""
     streaming_mode: Optional[Literal["NONE", "SSE", "BIDI"]] = None
@@ -169,7 +160,6 @@ class AppConfig(BaseModel):
     agents_registry: Dict[str, Any] = Field(default_factory=dict)
     agents: List[AgentConfig] = Field(default_factory=list)
     groups: List[GroupConfig] = Field(default_factory=list)
-    mcp: List[MCPServerConfig] = Field(default_factory=list)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     # Optional root-level instruction applied to the root agent
     global_instruction: Optional[str] = None
