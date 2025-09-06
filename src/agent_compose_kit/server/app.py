@@ -75,6 +75,52 @@ def get_app():
         diags = validate_app_config(cfg)
         return {"ok": len(diags) == 0, "diagnostics": diags, "config": cfg.model_dump(mode="json")}
 
+    @app.post("/graph")
+    def graph(req: Optional[ValidateRequest] = None, config_path: Optional[str] = None, config_inline: Optional[str] = None):
+        """Return a simple graph representation (nodes/edges) of the system.
+
+        Nodes include agents and groups; edges represent sub-agent wiring and workflow order.
+        """
+        cfg = _load_cfg(req=req, config_path=config_path, config_inline=config_inline)
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+
+        # Agents (inline)
+        agent_names = [a.name for a in (cfg.agents or [])]
+        for a in (cfg.agents or []):
+            nodes.append({"id": a.name, "label": a.name, "type": "agent"})
+            # sub_agents
+            for sub in a.sub_agents or []:
+                if sub in agent_names:
+                    edges.append({"source": a.name, "target": sub, "type": "sub"})
+
+        # Groups (inline)
+        for g in (cfg.groups or []):
+            gid = f"group:{g.name}"
+            nodes.append({"id": gid, "label": g.name, "type": "group"})
+            for m in g.members:
+                if m in agent_names:
+                    edges.append({"source": gid, "target": m, "type": "member"})
+
+        # Workflow (inline)
+        if cfg.workflow and cfg.workflow.nodes:
+            seq = cfg.workflow.nodes
+            if cfg.workflow.type in (None, "sequential", "loop"):
+                # connect sequentially
+                for i in range(len(seq) - 1):
+                    s, t = seq[i], seq[i + 1]
+                    if s in agent_names and t in agent_names:
+                        edges.append({"source": s, "target": t, "type": "flow"})
+            elif cfg.workflow.type == "parallel":
+                # connect virtual parallel node
+                pid = "parallel"
+                nodes.append({"id": pid, "label": "parallel", "type": "parallel"})
+                for n in seq:
+                    if n in agent_names:
+                        edges.append({"source": pid, "target": n, "type": "flow"})
+
+        return {"nodes": nodes, "edges": edges}
+
     @app.post("/runs")
     def start_run(
         req: Optional[RunRequest] = None,
