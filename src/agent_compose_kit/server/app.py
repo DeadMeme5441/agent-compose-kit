@@ -119,6 +119,42 @@ def get_app():
                     if n in agent_names:
                         edges.append({"source": pid, "target": n, "type": "flow"})
 
+        # Agents registry (optional)
+        ar = cfg.agents_registry or {}
+        reg_agents = ar.get("agents") or []
+        reg_groups = ar.get("groups") or []
+        # index for quick existence checks
+        reg_agent_ids: set[str] = set()
+        for a in reg_agents:
+            aid = str(a.get("id")) if a.get("id") else None
+            if not aid:
+                continue
+            reg_agent_ids.add(aid)
+            label = a.get("name") or aid
+            nodes.append({"id": f"registry:agent:{aid}", "label": str(label), "type": "agent_registry"})
+            for sub in a.get("sub_agents") or []:
+                sid = str(sub)
+                if sid in reg_agent_ids or any(sid == (x.get("id") and str(x.get("id"))) for x in reg_agents):
+                    edges.append({
+                        "source": f"registry:agent:{aid}",
+                        "target": f"registry:agent:{sid}",
+                        "type": "sub",
+                    })
+        for g in reg_groups:
+            gid = g.get("id")
+            if not gid:
+                continue
+            nid = f"registry:group:{gid}"
+            nodes.append({"id": nid, "label": str(gid), "type": "agent_group"})
+            for m in g.get("include") or []:
+                mid = str(m)
+                if mid in reg_agent_ids or any(mid == (x.get("id") and str(x.get("id"))) for x in reg_agents):
+                    edges.append({
+                        "source": nid,
+                        "target": f"registry:agent:{mid}",
+                        "type": "member",
+                    })
+
         return {"nodes": nodes, "edges": edges}
 
     @app.post("/runs")
