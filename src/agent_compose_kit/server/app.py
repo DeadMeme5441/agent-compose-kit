@@ -8,14 +8,18 @@ def get_app():
     """Return a FastAPI app that exposes validate/run/stream endpoints.
 
     Endpoints:
-    - GET /health → {ok: true}
-    - POST /validate → {ok: true, plan: str}
-    - POST /runs → {run_id, session_id}
-    - GET /runs/{run_id}/events → SSE stream of ADK events
+    - ``GET /health`` → ``{ok: true}``
+    - ``GET /schema`` → AppConfig JSON schema
+    - ``POST /validate`` → ``{ok: true, plan: str}``
+    - ``POST /lint`` → ``{ok, diagnostics: [], config: {…}}``
+    - ``POST /graph`` → ``{nodes:[], edges:[]}`` (inline + registry agents/groups)
+    - ``POST /runs`` → ``{run_id, session_id}``
+    - ``GET /runs/{run_id}/events`` → SSE stream of ADK events with keepalive pings
+    - ``POST /runs/{run_id}/cancel`` → mark stream for cooperative cancellation
 
     Notes:
-    - Builds services, registries, and a root agent named `root_agent`.
-    - Applies `global_instruction` to the root agent when present.
+    - Builds services, registries, and a root agent named ``root_agent``.
+    - Applies ``global_instruction`` to the root agent when present.
     - FastAPI is an optional dependency (import guarded).
     """
     try:

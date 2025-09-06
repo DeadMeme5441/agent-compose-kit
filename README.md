@@ -27,8 +27,10 @@ Design notes
 Tools
 - Function tools: `{type: function, ref: "module:callable", name?}`. The callable must be Python; for cross-language tools use MCP/OpenAPI below.
 - MCP toolsets: connect to MCP servers via stdio/SSE/HTTP and expose their tools to agents.
-- OpenAPI toolsets: generate `RestApiTool`s from an OpenAPI spec (inline/path); agents can call REST APIs directly.
+- OpenAPI toolsets: generate `RestApiTool`s from an OpenAPI spec (inline/path/url with allowlist); agents can call REST APIs directly.
 - Shared toolsets: define once under `toolsets:` and reference from agents with `{use: name}`.
+- Registry references: reference MCP/OpenAPI toolsets declared under `mcp_registry` / `openapi_registry` via `{use: 'mcp:<id>'}`, `{use: 'mcp_group:<id>'}`, `{use: 'openapi:<id>'}`, `{use: 'openapi_group:<id>'}`.
+- A2A remote agents: declare remote clients under `a2a_clients` and set `AgentConfig.kind: a2a_remote` + `client: <id>`.
 
 YAML Examples (Tools)
 ```yaml
@@ -60,6 +62,12 @@ agents:
           path: ./specs/petstore.yaml  # or inline: "{...}" (json/yaml)
         spec_type: yaml  # json|yaml; inferred from path extension when omitted
         tool_filter: []
+
+      # Registry references (resolved when registries are provided)
+      - {use: 'mcp:files'}
+      - {use: 'mcp_group:default'}
+      - {use: 'openapi:petstore'}
+      - {use: 'openapi_group:public'}
 ```
 
 Requirements
@@ -112,6 +120,43 @@ tool_reg = build_tool_registry_from_config(cfg, base_dir=".")
 agent_reg = build_agent_registry_from_config(cfg, base_dir=".", provider_defaults=cfg.model_providers, tool_registry=tool_reg)
 
 root = agent_reg.get("parent")  # or agent_reg.get_group("core")[0]
+```
+
+MCP/OpenAPI Registries (Config)
+```yaml
+mcp_registry:
+  servers:
+    - id: files
+      mode: sse        # sse|stdio|http
+      url: http://localhost:3000/sse
+      headers: {Authorization: 'Bearer ${TOKEN}'}
+      tool_filter: [list_directory, read_file]
+  groups:
+    - {id: default, include: [files]}
+
+openapi_registry:
+  fetch_allowlist: ["api.example.com", "*.trusted.com"]
+  apis:
+    - id: petstore
+      spec: {path: ./specs/petstore.yaml}   # or inline: "{...}" or url: https://api.example.com/openapi.json
+      spec_type: yaml
+      tool_filter: []
+  groups:
+    - {id: public, include: [petstore]}
+```
+
+A2A Remote Agents (Config)
+```yaml
+a2a_clients:
+  - id: my_remote
+    url: https://remote.agents.example.com
+    headers: {Authorization: 'Bearer ${A2A_TOKEN}'}
+
+agents:
+  - name: remote
+    kind: a2a_remote
+    client: my_remote
+    model: gemini-2.0-flash  # still allowed but ignored by remote
 ```
 
 Public API (for external CLI)
@@ -196,6 +241,8 @@ Project Structure
 - `src/agents/registry.py` — global AgentRegistry (ids, groups, sub-agent wiring).
 - `src/agents/builders_registry.py` — helpers to build AgentRegistry from AppConfig.
 - `src/tools/builders.py` — helpers to build ToolRegistry from AppConfig.
+ - `src/tools/mcp_registry.py` — McpRegistry for building/caching MCP toolsets.
+ - `src/tools/openapi_registry.py` — OpenAPIRegistry for building/caching OpenAPI toolsets.
 - `src/registry/fs.py` — filesystem helpers for saving/loading systems.
  - `src/api/public.py` — public API for external CLIs (SystemManager, SessionManager, run helpers).
  - `src/paths.py` — path/env helpers (AGENT_SYS_DIR, AGENT_OUTPUTS_DIR, AGENT_SESSIONS_URI).
@@ -210,6 +257,21 @@ Schema & Registry
 
 Roadmap
 - See `FULL_IMPLEMENTATION_PLAN.md` for detailed milestones (MCP/OpenAPI toolsets, JSON Schema export, registry helpers, observability hooks).
+
+Server Endpoints (optional web)
+- `GET /health` → `{ok: true}`
+- `GET /schema` → AppConfig JSON schema
+- `POST /validate` → `{ok, plan}`
+- `POST /lint` → `{ok, diagnostics:[], config:{...}}`
+- `POST /graph` → `{nodes:[], edges:[]}` (inline + registry agents/groups)
+- `POST /runs` → `{run_id, session_id}`
+- `GET /runs/{id}/events` → SSE stream with keepalive comments every ~15s
+- `POST /runs/{id}/cancel` → cooperative cancel flag for current stream
+
+Optional Dependencies
+- `fastapi`/`uvicorn` for the server endpoints
+- `mcp` for MCP stdio mode
+- `requests` for OpenAPI URL fetching (when using `spec.url`)
 
 License
 MIT

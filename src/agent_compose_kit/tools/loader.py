@@ -37,13 +37,29 @@ def load_tool_entry(
     mcp_registry: Any | None = None,
     openapi_registry: Any | None = None,
 ) -> object:
-    """Load a single tool or toolset from YAML entry.
+    """Load a single tool or toolset from a YAML entry.
 
     Supports:
-    - {type:function, ref:'module:callable', name?: str}
-    - {type:mcp, mode:stdio|sse|streamable_http, ...}
-    - {type:openapi, spec:{path|inline}, spec_type:json|yaml, tool_filter?:[]}
-    - {use: <toolset_name>} to reference a pre-declared toolset
+    - ``{type:function, ref:'module:callable', name?: str}``
+    - ``{type:mcp, mode:stdio|sse|streamable_http, ...}``
+    - ``{type:openapi, spec:{path|inline}, spec_type:json|yaml, tool_filter?:[]}``
+    - ``{use: <toolset_name>}`` referencing a shared toolset from ``toolsets``
+    - ``{use: 'mcp:<id>'}``, ``{use: 'mcp_group:<id>'}`` when an ``McpRegistry`` is provided
+    - ``{use: 'openapi:<id>'}``, ``{use: 'openapi_group:<id>'}`` when an ``OpenAPIRegistry`` is provided
+
+    Args:
+        entry: Mapping or scalar describing a tool/toolset.
+        base_dir: Base directory for resolving local paths.
+        toolsets_map: Optional shared toolsets registry (name→object).
+        mcp_registry: Optional MCP registry to resolve ``use: mcp:*`` references.
+        openapi_registry: Optional OpenAPI registry to resolve ``use: openapi:*`` references.
+
+    Returns:
+        A concrete tool/toolset instance or a list of tools (for group refs).
+
+    Raises:
+        ValueError: When a required field is missing or a reference is unknown.
+        ImportError: When optional MCP/OpenAPI support is not available.
     """
     # Reference to a named toolset
     if isinstance(entry, dict) and "use" in entry:
@@ -201,7 +217,15 @@ def load_tool_entry(
 
 
 def load_toolsets_map(cfg_toolsets: Dict[str, Any], *, base_dir: Path) -> Dict[str, object]:
-    """Build a name→toolset map from a shared `toolsets:` config block."""
+    """Build a name→toolset map from a shared ``toolsets:`` config block.
+
+    Args:
+        cfg_toolsets: Mapping of shared toolset specs by name.
+        base_dir: Base directory for resolving local files.
+
+    Returns:
+        Dictionary mapping toolset name to constructed toolset object.
+    """
     out: Dict[str, object] = {}
     for name, spec in cfg_toolsets.items():
         out[name] = load_tool_entry(spec, base_dir=base_dir, toolsets_map=None)
@@ -216,7 +240,18 @@ def load_tool_list(
     mcp_registry: Any | None = None,
     openapi_registry: Any | None = None,
 ) -> List[object]:
-    """Load tool/toolset entries into concrete tool objects."""
+    """Load tool/toolset entries into concrete tool objects.
+
+    Args:
+        entries: List of tool entries from config.
+        base_dir: Base directory for resolving local files.
+        toolsets_map: Optional shared toolset map.
+        mcp_registry: Optional MCP registry for registry references.
+        openapi_registry: Optional OpenAPI registry for registry references.
+
+    Returns:
+        List of concrete tool objects; group references are flattened.
+    """
     tools: List[object] = []
     for e in entries or []:
         obj = load_tool_entry(

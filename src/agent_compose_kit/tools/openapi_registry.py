@@ -9,6 +9,10 @@ class OpenAPIRegistry:
 
     Supports inline/path/url spec entries. URL fetch requires host present in
     fetch_allowlist. Builds OpenAPIToolset instances and caches by id.
+    
+    Args:
+        specs: Parsed ``cfg.openapi_registry`` (dict) or None.
+        base_dir: Base directory for resolving relative ``spec.path`` entries.
     """
 
     def __init__(self, specs: Dict[str, Any] | None, *, base_dir: Path) -> None:
@@ -29,6 +33,16 @@ class OpenAPIRegistry:
         self._toolsets: Dict[str, object] = {}
 
     def _allow_host(self, host: str) -> bool:
+        """Return True if hostname matches the allowlist.
+
+        Supports exact matches and wildcard patterns like ``*.example.com``.
+
+        Args:
+            host: Hostname extracted from a URL.
+
+        Returns:
+            True when allowed; otherwise False.
+        """
         host = (host or "").lower()
         for pat in self._allow:
             p = pat.lower().strip()
@@ -39,6 +53,19 @@ class OpenAPIRegistry:
         return False
 
     def _build_toolset(self, api_spec: Dict[str, Any]) -> object:
+        """Construct an ADK ``OpenAPIToolset`` from one API spec.
+
+        Args:
+            api_spec: Mapping describing an API entry (id, spec, headers, etc.).
+
+        Returns:
+            Constructed ``OpenAPIToolset``.
+
+        Raises:
+            ImportError: When OpenAPI support is not available in ADK.
+            ValueError: When required fields are missing/invalid, or URL host
+                is not allowlisted.
+        """
         try:
             from google.adk.tools.openapi_tool.openapi_spec_parser.openapi_toolset import (
                 OpenAPIToolset,
@@ -86,6 +113,17 @@ class OpenAPIRegistry:
         return OpenAPIToolset(spec_str=spec_str, spec_str_type=spec_type, tool_filter=tool_filter)
 
     def get(self, api_id: str) -> object:
+        """Return a cached or newly built OpenAPI toolset by id.
+
+        Args:
+            api_id: API identifier.
+
+        Returns:
+            ADK ``OpenAPIToolset`` instance.
+
+        Raises:
+            KeyError: When id is not present in registry.
+        """
         if api_id in self._toolsets:
             return self._toolsets[api_id]
         spec = self._apis_by_id.get(api_id)
@@ -96,6 +134,17 @@ class OpenAPIRegistry:
         return toolset
 
     def get_group(self, group_id: str) -> List[object]:
+        """Return toolsets for a registry API group.
+
+        Args:
+            group_id: Group identifier.
+
+        Returns:
+            List of ``OpenAPIToolset`` instances.
+
+        Raises:
+            KeyError: When group id is missing.
+        """
         ids = self._groups.get(group_id)
         if ids is None:
             raise KeyError(f"OpenAPI group id not found: {group_id}")
@@ -109,6 +158,7 @@ class OpenAPIRegistry:
         return out
 
     def close_all(self) -> None:
+        """Close all toolsets that expose ``close()``."""
         for obj in list(self._toolsets.values()):
             close = getattr(obj, "close", None)
             if callable(close):
@@ -116,4 +166,3 @@ class OpenAPIRegistry:
                     close()
                 except Exception:
                     pass
-

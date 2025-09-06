@@ -315,9 +315,13 @@ class OpenApiRegistryConfig(BaseModel):
 
 
 def validate_app_config(cfg: AppConfig) -> List[str]:
-    """Validate cross-references and groups for Phase 1 registries.
+    """Validate cross-references and groups for registries and agents.
 
-    Returns a list of human-readable diagnostics. Empty list means OK.
+    Args:
+        cfg: Application configuration to validate.
+
+    Returns:
+        List of human-readable diagnostics. Empty list means OK.
     """
     issues: List[str] = []
 

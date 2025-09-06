@@ -10,9 +10,16 @@ from .builder import _resolve_model  # reuse model resolution
 class AgentRegistry:
     """Global agent registry for a Runner lifecycle.
 
-    - Builds and caches LlmAgent instances by id on first access.
+    - Builds and caches LlmAgent or RemoteA2aAgent instances by id on first access.
     - Supports groups referencing other agents by id.
-    - Uses ToolRegistry for tool resolution when entries use 'use: registry:<tool_id>'.
+    - Uses ToolRegistry for tool resolution when entries use ``use: registry:<tool_id>``.
+
+    Args:
+        specs: Parsed ``cfg.agents_registry`` mapping.
+        base_dir: Base directory used by the tools loader.
+        provider_defaults: Provider defaults for LiteLLM model resolution.
+        tool_registry: Optional ToolRegistry instance used to resolve tool references.
+        a2a_clients: Optional mapping ``id -> a2a client config`` for remote agents.
     """
 
     def __init__(
@@ -45,7 +52,14 @@ class AgentRegistry:
                 self._groups[str(gid)] = [str(x) for x in include]
 
     def _resolve_tools(self, tools_entries: List[Any]) -> List[object]:
-        """Resolve tool entries including references into concrete tool objects."""
+        """Resolve tool entries including references into concrete tool objects.
+
+        Args:
+            tools_entries: List of tool entries from the registry.
+
+        Returns:
+            List of concrete tool instances.
+        """
         out: List[object] = []
         for e in tools_entries or []:
             if isinstance(e, dict) and isinstance(e.get("use"), str) and e["use"].startswith("registry:"):
@@ -59,7 +73,17 @@ class AgentRegistry:
         return out
 
     def get(self, agent_id: str) -> object:
-        """Return a built agent for the given registry id (cached)."""
+        """Return a built agent for the given registry id (cached).
+
+        Args:
+            agent_id: Agent identifier in the registry.
+
+        Returns:
+            Constructed agent instance.
+
+        Raises:
+            ValueError: When A2A client references are missing.
+        """
         if agent_id in self._agents:
             return self._agents[agent_id]
         spec = self._agent_specs_by_id.get(agent_id)
@@ -118,7 +142,14 @@ class AgentRegistry:
         return agent
 
     def get_group(self, group_id: str) -> List[object]:
-        """Return a list of agents for a group id, in declared order."""
+        """Return a list of agents for a group id, in declared order.
+
+        Args:
+            group_id: Group identifier.
+
+        Returns:
+            List of constructed agent instances.
+        """
         ids = self._groups.get(group_id)
         if ids is None:
             raise KeyError(f"Agent group id not found: {group_id}")

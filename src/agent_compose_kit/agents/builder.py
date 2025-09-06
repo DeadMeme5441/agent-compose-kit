@@ -56,14 +56,29 @@ def build_agents(
     shared_toolsets: Mapping[str, Any] | None = None,
     a2a_clients: Mapping[str, Any] | None = None,
 ):
-    """Build concrete LlmAgent instances from AgentConfig entries.
+    """Build concrete Agent instances from AgentConfig entries.
 
-    - Resolves models via `_resolve_model` with provider defaults.
-    - Loads tools via unified loader; supports shared `toolsets`.
+    - Resolves models via ``_resolve_model`` with provider defaults.
+    - Loads tools via unified loader; supports shared ``toolsets``.
     - Applies optional LlmAgent advanced parameters when provided (description,
       include_contents, output_key, planner, generate_content_config, code_executor,
       input_schema/output_schema).
-    - Performs a second pass to wire `sub_agents` references by name.
+    - Supports ``kind='a2a_remote'`` to construct RemoteA2aAgent when available.
+    - Performs a second pass to wire ``sub_agents`` references by name.
+
+    Args:
+        agent_cfgs: List of AgentConfig definitions.
+        provider_defaults: Provider defaults for LiteLLM models.
+        base_dir: Base directory for resolving local references.
+        shared_toolsets: Shared toolsets mapping used by the loader.
+        a2a_clients: Mapping ``id -> a2a client config`` for remote agents.
+
+    Returns:
+        Dict mapping agent name to constructed agent instance.
+
+    Raises:
+        ValueError: For missing A2A client references when required.
+        ImportError: When A2A support is not available in the runtime.
     """
     # Build concrete LlmAgent instances from configs
     agents: Dict[str, object] = {}
