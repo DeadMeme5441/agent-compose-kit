@@ -22,10 +22,12 @@ class AgentRegistry:
         base_dir: Path,
         provider_defaults: Mapping[str, Dict[str, Any]] | None = None,
         tool_registry: Any | None = None,
+        a2a_clients: Mapping[str, Any] | None = None,
     ) -> None:
         self.base_dir = base_dir
         self.provider_defaults = provider_defaults or {}
         self.tool_registry = tool_registry
+        self.a2a_clients = a2a_clients or {}
         self._specs = specs or {}
         self._agents: Dict[str, object] = {}
         # index agent specs by id
@@ -63,13 +65,47 @@ class AgentRegistry:
         spec = self._agent_specs_by_id.get(agent_id)
         if not spec:
             raise KeyError(f"Agent id not found in registry: {agent_id}")
-        from google.adk.agents import LlmAgent  # type: ignore
-
-        model_obj = _resolve_model(spec.get("model"), self.provider_defaults)
-        tools = self._resolve_tools(spec.get("tools") or [])
         name = spec.get("name") or agent_id
         instruction = spec.get("instruction") or ""
-        agent = LlmAgent(name=name, model=model_obj, instruction=instruction, tools=tools)
+        if str(spec.get("kind", "llm")) == "a2a_remote":
+            cid = spec.get("client")
+            if not cid or cid not in self.a2a_clients:
+                raise ValueError(f"Unknown a2a client id: {cid}")
+            c = self.a2a_clients[cid]
+            def _get(obj, key):
+                v = getattr(obj, key, None)
+                if v is None and isinstance(obj, dict):
+                    v = obj.get(key)
+                return v
+            url = _get(c, "url")
+            headers = _get(c, "headers") or {}
+            timeout = _get(c, "timeout")
+            try:
+                try:
+                    from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # type: ignore
+                except Exception:
+                    from google.adk.agents import RemoteA2aAgent  # type: ignore
+            except Exception as e:  # pragma: no cover - optional dep
+                raise ImportError("A2A support not available in google-adk") from e
+            agent = None
+            for kwargs_variant in (
+                {"name": name, "base_url": url, "instruction": instruction, "headers": headers, "timeout": timeout},
+                {"name": name, "url": url, "instruction": instruction, "headers": headers, "timeout": timeout},
+                {"name": name, "base_url": url, "instruction": instruction},
+            ):
+                try:
+                    agent = RemoteA2aAgent(**{k: v for k, v in kwargs_variant.items() if v is not None})
+                    break
+                except TypeError:
+                    continue
+            if agent is None:
+                raise TypeError("Failed to construct RemoteA2aAgent with supported parameters")
+        else:
+            from google.adk.agents import LlmAgent  # type: ignore
+
+            model_obj = _resolve_model(spec.get("model"), self.provider_defaults)
+            tools = self._resolve_tools(spec.get("tools") or [])
+            agent = LlmAgent(name=name, model=model_obj, instruction=instruction, tools=tools)
         # wire sub_agents if specified as registry ids
         sub_ids = spec.get("sub_agents") or []
         subs = [self.get(sid) for sid in sub_ids]

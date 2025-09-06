@@ -22,4 +22,18 @@ def build_agent_registry_from_config(
     """
     base = Path(base_dir).resolve()
     specs = cfg.agents_registry or {}
-    return AgentRegistry(specs, base_dir=base, provider_defaults=provider_defaults, tool_registry=tool_registry)
+    # Build a2a clients mapping id→config/dict for registry use
+    a2a_map: dict[str, object] = {}
+    for c in (cfg.a2a_clients or []):
+        try:
+            a2a_map[c.id] = c
+        except Exception:
+            # If already dict-like
+            a2a_map[str(getattr(c, "id", ""))] = c
+    return AgentRegistry(
+        specs,
+        base_dir=base,
+        provider_defaults=provider_defaults,
+        tool_registry=tool_registry,
+        a2a_clients=a2a_map,
+    )

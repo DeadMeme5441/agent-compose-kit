@@ -40,7 +40,18 @@ def build_runner_from_yaml(*, config_path: Path, user_id: str, session_id: Optio
     memory_service = build_memory_service(cfg.memory_service)
 
     # Agents
-    agent_map = build_agents(cfg.agents, provider_defaults=cfg.model_providers)
+    # Build A2A clients mapping for remote agents
+    a2a_map: dict[str, object] = {}
+    for c in (cfg.a2a_clients or []):
+        try:
+            a2a_map[c.id] = c
+        except Exception:
+            a2a_map[str(getattr(c, "id", ""))] = c
+    agent_map = build_agents(
+        cfg.agents,
+        provider_defaults=cfg.model_providers,
+        a2a_clients=a2a_map,
+    )
     if not agent_map:
         raise ValueError("No agents defined in config")
     # Choose root: workflow if defined, else first agent
