@@ -1,32 +1,47 @@
-name: Docs
+name: Build and Deploy Docs
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
-  build-and-deploy:
+  docs:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install uv
+
+      - name: Setup uv
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - name: Install docs deps
-        run: uv sync --dev --group docs
-      - name: Build docs
-        run: uv run mkdocs build --strict
-      - name: Publish to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system .[docs]
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build site (mkdocs)
+        run: uv run mkdocs build --strict --site-dir site
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          publish_branch: gh-pages
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
