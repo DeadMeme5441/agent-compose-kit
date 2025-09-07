@@ -6,6 +6,7 @@ Agent Compose Kit
 [![PyPI](https://img.shields.io/pypi/v/agent-compose-kit.svg)](https://pypi.org/project/agent-compose-kit/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/agent-compose-kit.svg)](https://pypi.org/project/agent-compose-kit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue)](https://deadmeme5441.github.io/agent-compose-kit/)
 
 Core Python library for YAML-driven construction of agent systems using Google ADK. This package provides configuration models, service factories, agent and tool builders, registries, runtime utilities, and a programmatic graph builder. It is designed to be consumed by external clients (CLI or web) that handle end-user interaction. No server, CLI, or TUI is included in this repo.
 

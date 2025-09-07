@@ -1,0 +1,41 @@
+site_name: Agent Compose Kit
+site_description: YAML-driven agent system builder for Google ADK (library-only)
+site_url: https://deadmeme5441.github.io/agent-compose-kit/
+repo_url: https://github.com/DeadMeme5441/agent-compose-kit
+repo_name: DeadMeme5441/agent-compose-kit
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - content.code.copy
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: blue
+      accent: indigo
+markdown_extensions:
+  - admonition
+  - codehilite
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+nav:
+  - Overview: index.md
+  - Installation: install.md
+  - Configuration: config.md
+  - Services: services.md
+  - Tools: tools.md
+  - Agents: agents.md
+  - Registries: registries.md
+  - Graph: graph.md
+  - Public API: public_api.md
+  - Examples: examples.md
+  - FAQ: faq.md

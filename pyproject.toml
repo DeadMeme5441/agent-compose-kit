@@ -26,6 +26,11 @@ dependencies = [
 [project.optional-dependencies]
 tools = ["mcp>=1.2.0"]
 dev = ["pytest>=8.4.2", "ruff>=0.12.12", "build>=1.2.2", "twine>=5.1.1"]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "pymdown-extensions>=10.8",
+]
 
 [tool.ruff]
 target-version = "py312"
