@@ -149,15 +149,21 @@ A2A Remote Agents (Config)
 ```yaml
 a2a_clients:
   - id: my_remote
-    url: https://remote.agents.example.com
-    headers: {Authorization: 'Bearer ${A2A_TOKEN}'}
+    # Prefer agent card URL (well-known path); url remains supported as a fallback
+    agent_card_url: https://remote.agents.example.com/.well-known/agent-card.json
+    headers: {Authorization: 'Bearer ${A2A_TOKEN}'}  # optional
 
 agents:
   - name: remote
     kind: a2a_remote
     client: my_remote
-    model: gemini-2.0-flash  # still allowed but ignored by remote
+    model: gemini-2.0-flash  # allowed but ignored by remote
 ```
+
+Migration note (A2A)
+- Prior releases used `url` as a base URL for a remote agent. The latest A2A wrapper prefers an agent card reference instead.
+- Use `agent_card_url` pointing to the remote agent’s well-known card (e.g., `/a2a/<name>/.well-known/agent-card.json`).
+- The old `url` field is still accepted and treated as an agent-card URL for backward compatibility.
 
 Public API (for external CLI)
 - Build a system and run a message:

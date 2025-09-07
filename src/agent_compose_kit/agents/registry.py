@@ -101,7 +101,7 @@ class AgentRegistry:
                 if v is None and isinstance(obj, dict):
                     v = obj.get(key)
                 return v
-            url = _get(c, "url")
+            card = _get(c, "agent_card_url") or _get(c, "url")
             headers = _get(c, "headers") or {}
             timeout = _get(c, "timeout")
             try:
@@ -113,9 +113,9 @@ class AgentRegistry:
                 raise ImportError("A2A support not available in google-adk") from e
             agent = None
             for kwargs_variant in (
-                {"name": name, "base_url": url, "instruction": instruction, "headers": headers, "timeout": timeout},
-                {"name": name, "url": url, "instruction": instruction, "headers": headers, "timeout": timeout},
-                {"name": name, "base_url": url, "instruction": instruction},
+                {"name": name, "agent_card": card, "description": spec.get("description") or (c.description if hasattr(c, "description") else None), "timeout": timeout},
+                {"name": name, "url": card, "instruction": instruction, "headers": headers, "timeout": timeout},
+                {"name": name, "base_url": card, "instruction": instruction},
             ):
                 try:
                     agent = RemoteA2aAgent(**{k: v for k, v in kwargs_variant.items() if v is not None})

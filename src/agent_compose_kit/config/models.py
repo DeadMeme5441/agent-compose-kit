@@ -246,7 +246,9 @@ class A2AClientConfig(BaseModel):
     Minimal shape for Phase 1; actual client wiring added in a later phase.
     """
     id: str
-    url: str
+    # New: prefer agent_card_url; keep url for backward-compat (treated as agent card URL)
+    agent_card_url: Optional[str] = None
+    url: Optional[str] = None
     headers: Dict[str, Any] = Field(default_factory=dict)
     timeout: Optional[float] = None
     description: Optional[str] = None

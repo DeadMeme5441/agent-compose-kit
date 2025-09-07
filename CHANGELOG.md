@@ -3,6 +3,13 @@ Changelog
 
 All notable changes to this project will be documented in this file.
 
+0.2.1 - A2A agent-card support (docs + compat)
+-----------------------------------------------
+- Update A2A remote agent wiring to prefer `agent_card` (AgentCard or URL) for `RemoteA2aAgent`.
+- Config: add `agent_card_url` to `A2AClientConfig` (keep `url` as backward-compatible alias treated as an agent-card URL).
+- Docs: README A2A examples now use `agent_card_url`; added migration note.
+- Tests/lint: green.
+
 0.2.0 - Programmatic-only library; registries & URIs
 ----------------------------------------------------
 - BREAKING: remove all FastAPI/server scaffolding; repo is library-only.

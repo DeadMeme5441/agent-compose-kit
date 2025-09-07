@@ -16,7 +16,7 @@ def _has(mod: str) -> bool:
 )
 def test_build_a2a_remote_agent():
     cfg = AppConfig(
-        a2a_clients=[A2AClientConfig(id="r1", url="https://example.com/a2a", headers={"X": "1"})],
+        a2a_clients=[A2AClientConfig(id="r1", agent_card_url="https://example.com/.well-known/agent-card.json", headers={"X": "1"})],
         agents=[AgentConfig(name="remote", kind="a2a_remote", client="r1", model="gemini-2.0-flash")],
     )
     a2a_map = {c.id: c for c in cfg.a2a_clients}
@@ -26,4 +26,3 @@ def test_build_a2a_remote_agent():
         pytest.skip("A2A support missing in google-adk")
     a = agents["remote"]
     assert getattr(a, "name", None) == "remote"
-
