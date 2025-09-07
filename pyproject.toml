@@ -15,21 +15,21 @@ classifiers = [
   "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    "pydantic>=2.7",
-    "pyyaml>=6.0",
-    # The following are runtime deps for full functionality; install via uv if preferred
-    "google-adk>=0.1.0", # provides Runner, LlmAgent, core services
-    "google-adk-extras>=0.1.1", # sessions/artifacts/memory extras (redis/mongo/sql/s3/yaml)
-    "litellm>=1.76.2",
+    "pydantic",
+    "pyyaml",
+    "google-adk",
+    "google-adk-extras",
+    "litellm",
 ]
 
 [project.optional-dependencies]
-tools = ["mcp>=1.2.0"]
-dev = ["pytest>=8.4.2", "ruff>=0.12.12", "build>=1.2.2", "twine>=5.1.1"]
+tools = ["mcp"]
+dev = ["pytest", "ruff", "build", "twine"]
 docs = [
-    "mkdocs>=1.6.0",
-    "mkdocs-material>=9.5.0",
-    "pymdown-extensions>=10.8",
+    "mkdocs",
+    "mkdocs-material",
+    "pymdown-extensions",
+    "mkdocs-llmstxt",
 ]
 
 [tool.ruff]
@@ -46,13 +46,14 @@ testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2",
-    "ruff>=0.12.12",
+    "pytest",
+    "ruff",
 ]
 docs = [
-  "mkdocs>=1.6.0",
-  "mkdocs-material>=9.5.0",
-  "pymdown-extensions>=10.8",
+  "mkdocs",
+  "mkdocs-material",
+  "pymdown-extensions",
+  "mkdocs-llmstxt",
 ]
 
 [build-system]

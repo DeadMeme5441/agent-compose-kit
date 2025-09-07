@@ -1,0 +1,41 @@
+# Agent Compose Kit
+
+> YAML-driven agent system builder for Google ADK (library-only)
+
+Agent Compose Kit turns YAML into ADK agent systems — services, tools, agents,
+registries, and a graph builder — all programmatic, built on google-adk and
+relying on google-adk-extras for durable backends.
+
+
+## Overview
+
+- [Overview](https://deadmeme5441.github.io/agent-compose-kit/index.md): What this package is and when to use it
+
+## Installation
+
+- [Installation](https://deadmeme5441.github.io/agent-compose-kit/install/index.md): Install with uv/pip and optional extras
+
+## Configuration & Services
+
+- [Configuration](https://deadmeme5441.github.io/agent-compose-kit/config/index.md): Configuration schema and env interpolation
+- [Services](https://deadmeme5441.github.io/agent-compose-kit/services/index.md): Session/Artifact/Memory backends and URIs
+
+## Tools & Agents
+
+- [Tools](https://deadmeme5441.github.io/agent-compose-kit/tools/index.md): Function/MCP/OpenAPI tools and usage
+- [Agents](https://deadmeme5441.github.io/agent-compose-kit/agents/index.md): Models, sub-agents, workflows, A2A (agent cards)
+
+## Registries
+
+- [Registries](https://deadmeme5441.github.io/agent-compose-kit/registries/index.md): Tool/MCP/OpenAPI/Agent registries and groups
+
+## Graph & Public API
+
+- [Graph](https://deadmeme5441.github.io/agent-compose-kit/graph/index.md): Build a system graph (nodes/edges)
+- [Public API](https://deadmeme5441.github.io/agent-compose-kit/public_api/index.md): SystemManager/SessionManager/run_text
+
+## Examples & FAQ
+
+- [Examples](https://deadmeme5441.github.io/agent-compose-kit/examples/index.md): End-to-end examples
+- [FAQ](https://deadmeme5441.github.io/agent-compose-kit/faq/index.md): Common questions
+

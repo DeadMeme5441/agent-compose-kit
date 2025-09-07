@@ -27,6 +27,34 @@ markdown_extensions:
   - pymdownx.snippets
   - pymdownx.tabbed:
       alternate_style: true
+plugins:
+  - search
+  - llmstxt:
+      markdown_description: |
+        Agent Compose Kit turns YAML into ADK agent systems — services, tools, agents,
+        registries, and a graph builder — all programmatic, built on google-adk and
+        relying on google-adk-extras for durable backends.
+      full_output: llms-full.txt
+      sections:
+        Overview:
+        - index.md: What this package is and when to use it
+        Installation:
+        - install.md: Install with uv/pip and optional extras
+        Configuration & Services:
+        - config.md: Configuration schema and env interpolation
+        - services.md: Session/Artifact/Memory backends and URIs
+        Tools & Agents:
+        - tools.md: Function/MCP/OpenAPI tools and usage
+        - agents.md: Models, sub-agents, workflows, A2A (agent cards)
+        Registries:
+        - registries.md: Tool/MCP/OpenAPI/Agent registries and groups
+        Graph & Public API:
+        - graph.md: Build a system graph (nodes/edges)
+        - public_api.md: SystemManager/SessionManager/run_text
+        Examples & FAQ:
+        - examples.md: End-to-end examples
+        - faq.md: Common questions
+docs_dir: docs
 nav:
   - Overview: index.md
   - Installation: install.md

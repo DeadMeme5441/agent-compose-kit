@@ -1,0 +1,469 @@
+# Agent Compose Kit
+
+> YAML-driven agent system builder for Google ADK (library-only)
+
+Agent Compose Kit turns YAML into ADK agent systems — services, tools, agents,
+registries, and a graph builder — all programmatic, built on google-adk and
+relying on google-adk-extras for durable backends.
+
+
+# Overview
+
+# Agent Compose Kit
+
+Agent Compose Kit is a Python library that turns YAML into runnable agent systems on top of Google ADK. It’s programmatic-only: no server, no CLI — just focused, composable building blocks for your own CLI, TUI, or Web app.
+
+Highlights
+
+- Config → Objects: validate YAML and construct ADK services, tools, and agents.
+- Conservative defaults: in-memory fallbacks when required params are missing.
+- Registries-first: enumerate tools/APIs/agents by id/group without building a Runner.
+- Graph builder: produce nodes/edges for your UI, no HTTP needed.
+
+What this repo is not
+
+- It does not ship a web server or UI. Use it inside your own app. For server helpers, see google-adk-extras.
+
+Quick links
+
+- Installation: [Install](install/)
+- Config schema: [Configuration](config/)
+- Services: [Services](services/)
+- Tools & Registries: [Tools](tools/), [Registries](registries/)
+- Agents & Workflows: [Agents](agents/)
+- Graph builder: [Graph](graph/)
+- Programmatic API: [Public API](public_api/)
+- End-to-end: [Examples](examples/)
+
+Requirements
+
+- Python 3.12+
+- google-adk and google-adk-extras (installed automatically via pip when you add this package). Optional extras like MCP/OpenAPI are guarded.
+# Installation
+
+# Installation
+
+Agent Compose Kit is published on PyPI. It depends on Google ADK and google-adk-extras. We recommend using `uv` for reliable, fast environments.
+
+Using uv
+
+```
+uv add agent-compose-kit
+```
+
+Using pip
+
+```
+pip install agent-compose-kit
+```
+
+Optional dependencies
+
+- MCP stdio support: `uv add agent-compose-kit[tools]` (installs `mcp`)
+- Docs (for contributors): `uv add --dev agent-compose-kit[docs]`
+
+Python compatibility
+
+- Python 3.12+
+
+Notes
+
+- Certain backends (Redis, Mongo, SQL, S3) require google-adk-extras at runtime. It is listed in this package’s dependencies and will be installed automatically, but you must still provide valid connection details at runtime.
+# Configuration & Services
+
+# Configuration
+
+Configs are Pydantic-based and support environment variable interpolation.
+
+Load and validate
+
+```
+from pathlib import Path
+from agent_compose_kit.config.models import load_config_file
+
+cfg = load_config_file(Path("configs/app.yaml"))
+```
+
+Top-level shape (AppConfig)
+
+- services: `session_service`, `artifact_service`, `memory_service` — each accepts a dict or a URI string.
+- model_providers: defaults merged into LiteLLM model definitions.
+- toolsets: shared toolsets reusable by agents.
+- agents, groups, workflow: define agent graph and composition.
+- registries: `tools_registry`, `agents_registry`, `mcp_registry`, `openapi_registry`.
+- a2a_clients: remote agent clients (agent card URLs).
+- runtime: ADK RunConfig tuning (streaming, limits).
+- global_instruction: optional instruction applied to the root agent at runtime.
+
+Environment interpolation
+
+- `${VAR}` and `$VAR` sequences are substituted from the process env.
+
+Service URIs
+
+- Sessions: `sqlite:///...`, `postgresql://...`, `mysql://...`, `redis://host:port/db`, `mongodb://...`, `yaml://path`, `memory:`
+- Artifacts: `file://path`, `s3://bucket/prefix`, `mongodb://...`, `sqlite:///...`
+- Memory: `redis://...`, `mongodb://...`, `sqlite:///...`, `yaml://...`, `memory:`
+
+Programmatic parsing
+
+```
+from agent_compose_kit.config.models import parse_service_uri
+
+cfg = parse_service_uri("session", "sqlite:///./sessions.db")
+```
+
+# Services
+
+The factories in `agent_compose_kit.services.factory` build ADK services. They’re conservative: if required params are missing, they return in-memory implementations.
+
+SessionService
+
+```
+from agent_compose_kit.services.factory import build_session_service
+
+svc = build_session_service("sqlite:///./sessions.db")  # or dict config
+```
+
+ArtifactService
+
+```
+from agent_compose_kit.services.factory import build_artifact_service
+
+art = build_artifact_service("file://./artifacts")
+```
+
+MemoryService (optional)
+
+```
+from agent_compose_kit.services.factory import build_memory_service
+
+mem = build_memory_service("memory:")  # or redis/mongo/sql/yaml
+```
+
+Backends
+
+- In-memory (default fallbacks)
+- Redis, MongoDB, SQL (via google-adk-extras)
+- YAML file stores (sessions/memory)
+- Artifacts: local folder, S3, MongoDB, SQL
+
+Notes
+
+- Missing or incomplete params → in-memory fallback.
+- No GCS support in this library (keep scope aligned with extras).
+# Tools & Agents
+
+# Tools
+
+Function tools
+
+```
+agents:
+  - name: calc
+    model: gemini-2.0-flash
+    tools:
+      - {type: function, ref: tests.helpers:sample_tool, name: add}
+```
+
+MCP toolsets (stdio/SSE/HTTP)
+
+```
+toolsets:
+  fs_tools:
+    type: mcp
+    mode: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "./sandbox"]
+    tool_filter: [list_directory, read_file]
+```
+
+OpenAPI toolsets
+
+```
+agents:
+  - name: api_caller
+    model: gemini-2.0-flash
+    tools:
+      - type: openapi
+        spec: {path: ./specs/petstore.yaml}
+        # spec_type inferred from extension; or set explicitly: json|yaml
+```
+
+Registry references in tools
+
+```
+agents:
+  - name: rich_tools
+    model: gemini-2.0-flash
+    tools:
+      - {use: 'mcp:files'}
+      - {use: 'openapi:petstore'}
+```
+
+Notes
+
+- MCP/OpenAPI support requires corresponding ADK components; imports are guarded.
+- OpenAPI via URL requires allowlisted host in openapi_registry; inline/path supported directly.
+
+# Agents
+
+LlmAgent from string model
+
+```
+agents:
+  - name: planner
+    model: gemini-2.0-flash
+    instruction: Plan tasks and call tools.
+```
+
+LiteLLM model mapping with provider defaults
+
+```
+model_providers:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+
+agents:
+  - name: planner
+    model:
+      type: litellm
+      model: openai/gpt-4o-mini
+```
+
+Sub-agents & workflows
+
+```
+agents:
+  - name: a
+    model: gemini-2.0-flash
+  - name: b
+    model: gemini-2.0-flash
+    sub_agents: [a]
+
+workflow: {type: sequential, nodes: [a, b]}
+```
+
+A2A remote agents (agent cards)
+
+```
+a2a_clients:
+  - id: remote
+    agent_card_url: https://host:8000/a2a/hello/.well-known/agent-card.json
+
+agents:
+  - name: remote
+    kind: a2a_remote
+    client: remote
+```
+
+Notes
+
+- A2A prefers agent cards (AgentCard or URL). The legacy `url` field is still accepted but is treated as a card URL.
+- Advanced options (planner, code executor, structured schemas) are optional and guarded.
+# Registries
+
+# Registries
+
+ToolRegistry (inline)
+
+```
+from pathlib import Path
+from agent_compose_kit.config.models import load_config_file
+from agent_compose_kit.tools.builders import build_tool_registry_from_config
+
+cfg = load_config_file(Path("configs/app.yaml"))
+tool_reg = build_tool_registry_from_config(cfg, base_dir=".")
+print(tool_reg.list_tool_ids())
+```
+
+McpRegistry / OpenAPIRegistry
+
+```
+from agent_compose_kit.tools.builders import build_mcp_registry_from_config, build_openapi_registry_from_config
+
+mcp_reg = build_mcp_registry_from_config(cfg, base_dir=".")
+openapi_reg = build_openapi_registry_from_config(cfg, base_dir=".")
+```
+
+AgentRegistry
+
+```
+from agent_compose_kit.agents.builders_registry import build_agent_registry_from_config
+
+agent_reg = build_agent_registry_from_config(cfg, base_dir=".", provider_defaults=cfg.model_providers, tool_registry=tool_reg)
+root = agent_reg.get_group("core")[0]
+```
+
+Groups
+
+- Each registry supports simple groups (id → include list).
+- Use `list_*` helpers to enumerate ids/groups before resolution.
+
+Notes
+
+- OpenAPI registry enforces a strict allowlist for fetching specs via URL.
+- Call `close_all()` on ToolRegistry or registries that hold long-lived connections when your app shuts down.
+# Graph & Public API
+
+# Graph
+
+Produce a simple system graph for UIs — no HTTP server required.
+
+```
+from pathlib import Path
+from agent_compose_kit.config.models import load_config_file
+from agent_compose_kit.graph.build import build_system_graph
+
+cfg = load_config_file(Path("configs/app.yaml"))
+g = build_system_graph(cfg)
+print(g["nodes"], g["edges"])  # nodes/edges dicts
+```
+
+Nodes
+
+- Inline agents and groups
+- Registry agents and groups (`registry:*` node ids)
+
+Edges
+
+- Sub-agent wiring, group membership, workflow order
+
+# Public API
+
+Use these helpers to integrate quickly without dealing with low-level plumbing.
+
+SystemManager
+
+```
+from pathlib import Path
+from agent_compose_kit.api.public import SystemManager
+
+sm = SystemManager(base_dir=Path("./systems/my_system"))
+cfg = sm.load("config.yaml")
+root = sm.select_root_agent(cfg)
+runner, resources = sm.build_runner(cfg, root_agent=root)
+```
+
+SessionManager
+
+```
+from agent_compose_kit.api.public import SessionManager
+sess_mgr = SessionManager(runner)
+session = await sess_mgr.get_or_create(user_id="u1")
+```
+
+run_text
+
+```
+from agent_compose_kit.api.public import run_text, event_to_minimal_json
+
+async for ev in run_text(runner=runner, user_id="u1", session_id=session.id, text="hello"):
+    print(event_to_minimal_json(ev))
+```
+
+Notes
+
+- `SystemManager.select_root_agent` prefers agents_registry when provided.
+- `event_to_minimal_json` serializes events for light UIs; extend as needed for your app.
+# Examples & FAQ
+
+# End-to-end Examples
+
+## Minimal YAML + runner
+
+```
+services:
+  session_service: "sqlite:///./sessions.db"
+  artifact_service: "file://./artifacts"
+
+agents:
+  - name: planner
+    model: gemini-2.0-flash
+    instruction: You are a helpful planner.
+
+workflow:
+  type: sequential
+  nodes: [planner]
+```
+
+```
+from pathlib import Path
+from agent_compose_kit.config.models import load_config_file
+from agent_compose_kit.runtime.supervisor import build_run_config
+from agent_compose_kit.api.public import SystemManager, SessionManager, run_text, event_to_minimal_json
+
+cfg = load_config_file(Path("./configs/app.yaml"))
+sm = SystemManager(base_dir=Path("."))
+root = sm.select_root_agent(cfg)
+runner, _ = sm.build_runner(cfg, root_agent=root)
+
+import asyncio
+
+async def main():
+    sess = await SessionManager(runner).get_or_create(user_id="u1")
+    async for ev in run_text(runner=runner, user_id="u1", session_id=sess.id, text="hello"):
+        print(event_to_minimal_json(ev))
+
+asyncio.run(main())
+```
+
+## Tools via registries
+
+```
+tools_registry:
+  tools:
+    - {id: util.add, type: function, ref: tests.helpers:sample_tool}
+  groups:
+    - {id: essentials, include: [util.add]}
+
+agents_registry:
+  agents:
+    - {id: calc, name: calculator, model: gemini-2.0-flash, tools: [{use: 'registry:util.add'}]}
+  groups:
+    - {id: core, include: [calc]}
+```
+
+```
+from agent_compose_kit.tools.builders import build_tool_registry_from_config
+from agent_compose_kit.agents.builders_registry import build_agent_registry_from_config
+
+tool_reg = build_tool_registry_from_config(cfg, base_dir=".")
+agent_reg = build_agent_registry_from_config(cfg, base_dir=".", provider_defaults=cfg.model_providers, tool_registry=tool_reg)
+root = agent_reg.get_group("core")[0]
+```
+
+## A2A remote agent by agent card
+
+```
+a2a_clients:
+  - id: remote
+    agent_card_url: https://host:8000/a2a/hello/.well-known/agent-card.json
+
+agents:
+  - name: remote
+    kind: a2a_remote
+    client: remote
+```
+
+# Frequently Asked Questions
+
+Does this library include a server?
+
+- No. It is programmatic-only. If you need a hosted API, use google-adk-extras to build a FastAPI app and wire your agents.
+
+Do I need google-adk-extras?
+
+- Yes for most storage/IO backends (Redis, Mongo, SQL, S3, local folders, YAML). It is a dependency of this package and gets installed automatically, but you still need to configure your URIs/secrets.
+
+How do I connect to MCP or OpenAPI toolsets?
+
+- MCP and OpenAPI adapters come from ADK. This library builds and caches toolsets. Ensure the corresponding ADK components are installed and available.
+
+Can I fetch OpenAPI specs by URL?
+
+- Yes via OpenAPIRegistry only, and only when the hostname is allowlisted to avoid surprises. Inline/path specs are always supported.
+
+Can I enumerate agents/tools without building a Runner?
+
+- Yes. Use registries and their `list_*` helpers.
