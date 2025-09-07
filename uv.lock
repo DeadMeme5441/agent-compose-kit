@@ -48,6 +48,11 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+docs = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "pymdown-extensions" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -71,6 +76,11 @@ provides-extras = ["tools", "dev", "docs"]
 dev = [
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "ruff", specifier = ">=0.12.12" },
+]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0" },
+    { name = "pymdown-extensions", specifier = ">=10.8" },
 ]
 
 [[package]]
