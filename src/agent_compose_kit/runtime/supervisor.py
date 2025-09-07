@@ -120,7 +120,6 @@ def build_run_config(cfg: AppConfig):
     """Construct ADK RunConfig from YAML runtime section."""
     from google.adk.agents.run_config import RunConfig, StreamingMode  # type: ignore
 
-    rc = cfg.runtime or {}
     # Map streaming_mode string to enum
     mode = None
     sm = getattr(cfg.runtime, "streaming_mode", None)

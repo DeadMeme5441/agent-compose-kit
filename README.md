@@ -7,7 +7,7 @@ Agent Compose Kit
 [![Python Versions](https://img.shields.io/pypi/pyversions/agent-compose-kit.svg)](https://pypi.org/project/agent-compose-kit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Core Python library for YAML-driven construction of agent systems using Google ADK. This package provides configuration models, service factories, agent and tool builders, registries, runtime utilities, and a thin server wrapper. It is designed to be consumed by external clients (CLI or web) that handle end-user interaction. No CLI or TUI is included in this repo.
+Core Python library for YAML-driven construction of agent systems using Google ADK. This package provides configuration models, service factories, agent and tool builders, registries, runtime utilities, and a programmatic graph builder. It is designed to be consumed by external clients (CLI or web) that handle end-user interaction. No server, CLI, or TUI is included in this repo.
 
 Features
 - Config schema (Pydantic) with environment interpolation and provider defaults.
@@ -184,22 +184,16 @@ Environment variables (optional)
 - `AGENT_OUTPUTS_DIR`: root directory for outputs/artifacts (default `./outputs`).
 - `AGENT_SESSIONS_URI`: default sessions storage URI (default `sqlite:///./sessions.db`).
 
-Serve as API (ADK FastAPI)
-- Generate an ADK wrapper module so `adk run`/`adk web` can load your root agent:
+System Graph (Programmatic)
 ```python
 from pathlib import Path
-from agent_compose_kit.serve.scaffold import write_adk_wrapper, write_fastapi_app_py, write_docker_scaffold
+from agent_compose_kit.config.models import load_config_file
+from agent_compose_kit.graph.build import build_system_graph
 
-agents_dir = Path("./agents"); agents_dir.mkdir(exist_ok=True)
-write_adk_wrapper(agents_dir=agents_dir, system_name="my_system", config_path=Path("configs/app.yaml"), package_import="src", copy_config=True)
-write_fastapi_app_py(output_dir=Path("."), agents_dir=agents_dir)
+cfg = load_config_file(Path("configs/app.yaml"))
+graph = build_system_graph(cfg)
+print(graph["nodes"], graph["edges"])  # nodes/edges dicts
 ```
-- Run the API locally:
-  - `uvicorn app:app --host 0.0.0.0 --port 8000`
-  - Or use ADK directly: `adk run agents/my_system` (interactive) or start FastAPI via ADK CLI.
-- Containerize (optional):
-  - `write_docker_scaffold(output_dir=Path("."), dist_name="agent-compose-kit")`
-  - `docker build -t my-system . && docker run -p 8000:8000 my-system`
 
 YAML Example
 ```yaml
@@ -258,27 +252,34 @@ Schema & Registry
 Roadmap
 - See `FULL_IMPLEMENTATION_PLAN.md` for detailed milestones (MCP/OpenAPI toolsets, JSON Schema export, registry helpers, observability hooks).
 
-Server Endpoints (optional web)
-- `GET /health` → `{ok: true}`
-- `GET /schema` → AppConfig JSON schema
-- `POST /validate` → `{ok, plan}`
-- `POST /lint` → `{ok, diagnostics:[], config:{...}}`
-- `POST /graph` → `{nodes:[], edges:[]}` (inline + registry agents/groups)
-- `POST /runs` → `{run_id, session_id}`
-- `GET /runs/{id}/events` → SSE stream with keepalive comments every ~15s
-- `POST /runs/{id}/cancel` → cooperative cancel flag for current stream
-
 Optional Dependencies
-- `fastapi`/`uvicorn` for the server endpoints
 - `mcp` for MCP stdio mode
 - `requests` for OpenAPI URL fetching (when using `spec.url`)
+
+Service Config: URI vs dict
+```yaml
+services:
+  # URI strings are accepted and parsed into structured configs
+  session_service: "sqlite:///./sessions.db"       # or "redis://localhost:6379/0", "mongodb://localhost/adk"
+  artifact_service: "file://./artifacts"           # or "s3://my-bucket/prefix", "sqlite:///./artifacts.db"
+  # memory service optional
+  # memory_service: "redis://localhost:6379/0"
+```
+
+Equivalent programmatic usage:
+```python
+from agent_compose_kit.services.factory import build_session_service, build_artifact_service
+
+session = build_session_service("sqlite:///./sessions.db")
+artifacts = build_artifact_service("file://./artifacts")
+```
 
 License
 MIT
 
 Publishing plan (summary)
 - Finalize metadata in `pyproject.toml`: project name, description, license, classifiers, homepage/repo URLs, keywords.
-- Optional extras: define `[project.optional-dependencies]` for `web` (fastapi, uvicorn), `tools` (mcp, openapi), and `dev` (ruff, pytest).
+- Optional extras: define `[project.optional-dependencies]` for `tools` and `dev`.
 - Versioning: adopt SemVer; tag releases in VCS (e.g., v0.1.0).
 - Build: `python -m build` (ensure `build` in dev deps) or `uv build`.
 - Publish: `twine upload dist/*` (or GitHub Actions workflow for publish-on-tag).

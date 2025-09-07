@@ -147,9 +147,10 @@ class WorkflowConfig(BaseModel):
 class AppConfig(BaseModel):
     """Top-level application config loaded from YAML."""
     services: Dict[str, Any] = Field(default_factory=dict)
-    session_service: SessionServiceConfig = Field(default_factory=SessionServiceConfig)
-    artifact_service: ArtifactServiceConfig = Field(default_factory=ArtifactServiceConfig)
-    memory_service: Optional[MemoryServiceConfig] = None
+    # Accept either structured config or URI string for services
+    session_service: SessionServiceConfig | str = Field(default_factory=SessionServiceConfig)
+    artifact_service: ArtifactServiceConfig | str = Field(default_factory=ArtifactServiceConfig)
+    memory_service: Optional[MemoryServiceConfig | str] = None
     workflow: Optional[WorkflowConfig] = None
     # Defaults for LiteLLM providers, keyed by provider name (e.g., openai, ollama_chat)
     model_providers: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
@@ -249,6 +250,105 @@ class A2AClientConfig(BaseModel):
     headers: Dict[str, Any] = Field(default_factory=dict)
     timeout: Optional[float] = None
     description: Optional[str] = None
+
+
+def parse_service_uri(kind: str, uri: str) -> SessionServiceConfig | ArtifactServiceConfig | MemoryServiceConfig:
+    """Parse a service URI string into a structured config.
+
+    Supported schemes (conservative defaults):
+    - Sessions/Memory:
+      - redis://host:port/db
+      - mongodb://... or mongo://...
+      - sqlite:///..., postgresql://..., mysql://... (treated as SQL "db_url")
+      - yaml://<base_path>
+      - memory: (in-memory)
+    - Artifacts:
+      - file://<base_path> (or local://<base_path>)
+      - s3://bucket/prefix
+      - mongodb://... (db_name from path)
+      - sqlite/postgresql/mysql (treated as SQL "db_url")
+
+    If insufficient information is provided, returns an in-memory config for the kind.
+    """
+    from urllib.parse import urlparse
+
+    k = kind.strip().lower()
+    u = urlparse(uri)
+    scheme = (u.scheme or "").lower()
+
+    def _inmem():
+        if k == "session":
+            return SessionServiceConfig(type="in_memory")
+        if k == "artifact":
+            return ArtifactServiceConfig(type="in_memory")
+        return MemoryServiceConfig(type="in_memory")
+
+    if not scheme:
+        return _inmem()
+
+    # Memory shorthand
+    if scheme in {"memory", "inmemory"}:
+        return _inmem()
+
+    # YAML-backed
+    if scheme in {"yaml", "file+yaml", "yaml+file"}:
+        base = (u.netloc + u.path).lstrip("/")
+        if k == "session":
+            return SessionServiceConfig(type="yaml_file", base_path=base or None)
+        if k == "artifact":
+            # No YAML artifact store; fall back to local folder if given
+            return ArtifactServiceConfig(type="local_folder", base_path=base or None)
+        return MemoryServiceConfig(type="yaml_file", base_path=base or None)
+
+    # Redis
+    if scheme == "redis":
+        if k == "session":
+            return SessionServiceConfig(type="redis", redis_url=uri)
+        if k == "memory":
+            db = None
+            try:
+                if u.path and len(u.path) > 1:
+                    db = int(u.path.lstrip("/"))
+            except Exception:
+                db = None
+            return MemoryServiceConfig(
+                type="redis",
+                redis_host=u.hostname or None,
+                redis_port=u.port or None,
+                redis_db=db,
+            )
+        return _inmem()
+
+    # Mongo
+    if scheme in {"mongodb", "mongo"}:
+        db_name = u.path.lstrip("/") or None
+        if k == "session":
+            return SessionServiceConfig(type="mongo", mongo_url=uri, db_name=db_name)
+        if k == "artifact":
+            return ArtifactServiceConfig(type="mongo", mongo_url=uri, db_name=db_name)
+        return MemoryServiceConfig(type="mongo", mongo_url=uri, db_name=db_name)
+
+    # SQL-like (sqlite/postgres/mysql)
+    if scheme in {"sqlite", "postgresql", "postgres", "mysql"}:
+        if k == "session":
+            return SessionServiceConfig(type="sql", db_url=uri)
+        if k == "artifact":
+            return ArtifactServiceConfig(type="sql", db_url=uri)
+        return MemoryServiceConfig(type="sql", db_url=uri)
+
+    # Local folder artifacts
+    if k == "artifact" and scheme in {"file", "local"}:
+        base = (u.netloc + u.path).lstrip("/")
+        return ArtifactServiceConfig(type="local_folder", base_path=base or None)
+
+    # S3 artifacts
+    if k == "artifact" and scheme == "s3":
+        bucket = u.netloc or None
+        prefix = u.path.lstrip("/") or None
+        return ArtifactServiceConfig(type="s3", bucket_name=bucket, s3_prefix=prefix)
+
+    # Unknown scheme → in-memory
+    return _inmem()
 
 
 class McpRegistryServer(BaseModel):

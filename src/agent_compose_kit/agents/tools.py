@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """
 Function tools exposed to the main agent.
 
 These are intentionally conservative (read/search/plan/validate/graph);
 write operations will be added later behind explicit approvals.
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import List

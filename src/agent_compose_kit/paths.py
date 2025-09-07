@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Path and environment helpers for external consumers (e.g., CLI).
 
 Environment variables (defaults in parentheses):
@@ -9,6 +7,8 @@ Environment variables (defaults in parentheses):
 
 These helpers do not perform any I/O beyond path resolution.
 """
+
+from __future__ import annotations
 
 import os
 from pathlib import Path

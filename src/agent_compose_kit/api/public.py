@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Public API for consumers (e.g., external CLI) to build and interact with
 agent systems using this library without bringing in a CLI here.
@@ -11,6 +9,8 @@ Surfaces:
 - cancel utilities: CancelRegistry (best-effort stub)
 - event utils: to_minimal_json for lightweight serialization (no JSONL writing)
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional

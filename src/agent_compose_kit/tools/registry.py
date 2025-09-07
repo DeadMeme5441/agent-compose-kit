@@ -69,3 +69,12 @@ class ToolRegistry:
                     close()
                 except Exception:
                     pass
+
+    # Discovery helpers
+    def list_tool_ids(self) -> List[str]:
+        """Return all tool ids known to the registry."""
+        return sorted(self._tool_specs_by_id.keys())
+
+    def list_tool_groups(self) -> List[str]:
+        """Return all tool group ids."""
+        return sorted(self._groups.keys())

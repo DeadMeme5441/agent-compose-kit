@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from ..config.models import ArtifactServiceConfig, MemoryServiceConfig, SessionServiceConfig
+from ..config.models import (
+    ArtifactServiceConfig,
+    MemoryServiceConfig,
+    SessionServiceConfig,
+    parse_service_uri,
+)
 
 
-def build_session_service(cfg: SessionServiceConfig):
+def build_session_service(cfg: SessionServiceConfig | str):
     """Construct and return a SessionService implementation.
 
     Behavior:
@@ -19,6 +24,8 @@ def build_session_service(cfg: SessionServiceConfig):
     parameters are missing, the function conservatively returns an in-memory
     implementation to avoid surprise external calls.
     """
+    if isinstance(cfg, str):
+        cfg = parse_service_uri("session", cfg)  # type: ignore[assignment]
     t = cfg.type
     if t == "in_memory":
         from google.adk.sessions import InMemorySessionService  # type: ignore
@@ -81,7 +88,7 @@ def build_session_service(cfg: SessionServiceConfig):
     raise NotImplementedError(f"Unsupported session service type: {t}")
 
 
-def build_artifact_service(cfg: ArtifactServiceConfig):
+def build_artifact_service(cfg: ArtifactServiceConfig | str):
     """Construct and return an ArtifactService implementation.
 
     Behavior:
@@ -93,6 +100,8 @@ def build_artifact_service(cfg: ArtifactServiceConfig):
 
     Optional dependencies are imported lazily and guarded.
     """
+    if isinstance(cfg, str):
+        cfg = parse_service_uri("artifact", cfg)  # type: ignore[assignment]
     t = cfg.type
     if t == "in_memory":
         from google.adk.artifacts import InMemoryArtifactService  # type: ignore
@@ -139,18 +148,10 @@ def build_artifact_service(cfg: ArtifactServiceConfig):
         if not db_url:
             return InMemoryArtifactService()
         return SQLArtifactService(database_url=db_url)
-    if t == "gcs":
-        if not cfg.bucket_name:
-            from google.adk.artifacts import InMemoryArtifactService  # type: ignore
-
-            return InMemoryArtifactService()
-        from google.adk.artifacts import GcsArtifactService  # type: ignore
-
-        return GcsArtifactService(bucket_name=cfg.bucket_name)
     raise NotImplementedError(f"Unsupported artifact service type: {t}")
 
 
-def build_memory_service(cfg: MemoryServiceConfig | None):
+def build_memory_service(cfg: MemoryServiceConfig | str | None):
     """Construct and return a MemoryService implementation or None.
 
     Behavior:
@@ -162,7 +163,11 @@ def build_memory_service(cfg: MemoryServiceConfig | None):
     - yaml_file → google-adk-extras YamlFileMemoryService
     - No Vertex AI memory support (removed)
     """
-    if cfg is None or cfg.type is None:
+    if cfg is None:
+        return None
+    if isinstance(cfg, str):
+        cfg = parse_service_uri("memory", cfg)  # type: ignore[assignment]
+    if cfg.type is None:
         return None
     if cfg.type == "in_memory":
         from google.adk.memory import InMemoryMemoryService  # type: ignore

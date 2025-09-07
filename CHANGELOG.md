@@ -3,16 +3,15 @@ Changelog
 
 All notable changes to this project will be documented in this file.
 
-Unreleased
-----------
-- Add public API (SystemManager, SessionManager, run_text, CancelRegistry).
-- Normalize root agent name to `root_agent` across builders/server/scaffold.
-- Support advanced LlmAgent options (description, include_contents, output_key,
-  generate_content_config, planner, code_executor, input_schema/output_schema).
-- Add env/path helpers (AGENT_SYS_DIR, AGENT_OUTPUTS_DIR, AGENT_SESSIONS_URI).
-- Add Tool/Agent registries and filesystem registry helpers.
-- Thin FastAPI server wrapper and ADK FastAPI scaffolding utilities.
-- Comprehensive tests and docs; CI and publish workflows.
+0.2.0 - Programmatic-only library; registries & URIs
+----------------------------------------------------
+- BREAKING: remove all FastAPI/server scaffolding; repo is library-only.
+- New: `graph.build_system_graph(cfg)` for UI graphs (no HTTP required).
+- New: `parse_service_uri` and URI support for session/artifact/memory configs.
+- New: registry discovery methods (`list_*`) on Tool/MCP/OpenAPI/Agent registries.
+- Public API hardened: `SystemManager`, `SessionManager`, `run_text`, `event_to_minimal_json`.
+- Docs: programmatic-only README with service URI examples and graph usage.
+- Lint/tests: ruff clean, 70+ tests green.
 
 0.1.0 - Initial release
 -----------------------
@@ -20,4 +19,3 @@ Unreleased
 - YAML → ADK services, tools, agents, workflows, and RunConfig.
 - Unified tool loader for function/MCP/OpenAPI (optional deps guarded).
 - Basic documentation and examples.
-

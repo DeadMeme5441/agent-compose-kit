@@ -2,8 +2,8 @@ import importlib.util
 
 import pytest
 
-from agent_compose_kit.config.models import AgentConfig, AppConfig, A2AClientConfig
 from agent_compose_kit.agents.builder import build_agents
+from agent_compose_kit.config.models import A2AClientConfig, AgentConfig, AppConfig
 
 
 def _has(mod: str) -> bool:

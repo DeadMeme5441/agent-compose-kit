@@ -164,3 +164,12 @@ class McpRegistry:
                     close()
                 except Exception:
                     pass
+
+    # Discovery helpers
+    def list_ids(self) -> List[str]:
+        """Return all MCP server ids in the registry."""
+        return sorted(self._servers_by_id.keys())
+
+    def list_groups(self) -> List[str]:
+        """Return all MCP group ids."""
+        return sorted(self._groups.keys())

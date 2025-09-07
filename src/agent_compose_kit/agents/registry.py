@@ -154,3 +154,12 @@ class AgentRegistry:
         if ids is None:
             raise KeyError(f"Agent group id not found: {group_id}")
         return [self.get(aid) for aid in ids]
+
+    # Discovery helpers
+    def list_agent_ids(self) -> List[str]:
+        """Return all agent ids in the registry."""
+        return sorted(self._agent_specs_by_id.keys())
+
+    def list_agent_groups(self) -> List[str]:
+        """Return all agent group ids in the registry."""
+        return sorted(self._groups.keys())
