@@ -1,0 +1,16 @@
+{
+  "include": [
+    "src/agent_compose_kit/config",
+    "tests/test_schema_v2.py"
+  ],
+  "exclude": [
+    "site",
+    ".venv",
+    ".ruff_cache",
+    ".pytest_cache"
+  ],
+  "typeCheckingMode": "standard",
+  "reportExplicitAny": false,
+  "reportUnknownParameterType": false,
+  "reportUnknownVariableType": false
+}

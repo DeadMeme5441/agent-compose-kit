@@ -1,496 +1,457 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+import re
+from pydantic import BaseModel, Field, ValidationError, model_validator, field_validator
 
-ServiceType = Literal[
-    "in_memory",
-    "redis",
-    "mongo",
-    "sql",
-    "yaml_file",
-    "db",
-    "database",
-    "s3",
-    "local_folder",
-]
+# =====================
+# Core reference types
+# =====================
+
+RegistryKind = Literal["mcp", "openapi", "agent", "function"]
 
 
-class SessionServiceConfig(BaseModel):
-    """Config for SessionService backends.
+class RegistryRef(BaseModel):
+    """Reference to an external registry object.
 
-    Supported types: in_memory, redis, mongo, sql, yaml_file, db, database
+    Format: registry://{kind}/{key}@{range|version|latest}
+    This model stores the raw string and a parsed view for validation and tooling.
     """
-    type: Literal[
-        "in_memory",
-        "redis",
-        "mongo",
-        "sql",
-        "yaml_file",
-        "db",
-        "database",
-    ] = "in_memory"
-    # redis (url or discrete fields)
-    redis_url: Optional[str] = None
-    redis_host: Optional[str] = None
-    redis_port: Optional[int] = None
-    redis_db: Optional[int] = None
-    redis_password: Optional[str] = None
-    # mongo
-    mongo_url: Optional[str] = None
-    db_name: Optional[str] = None
-    # sql (SQLAlchemy-style URL)
-    db_url: Optional[str] = None
-    # yaml files
-    base_path: Optional[str] = None
-    # extra params
-    params: Dict[str, Any] = Field(default_factory=dict)
+
+    value: str = Field(
+        ...,
+        json_schema_extra={
+            "markdownDescription": "Reference to an external registry object. Format: registry://{kind}/{key}@{version|range|latest}",
+            "examples": [
+                "registry://mcp/files@latest",
+                "registry://openapi/petstore@1.0.0",
+                "registry://agent/planner@>=0.2",
+            ],
+        },
+    )
+    kind: Optional[RegistryKind] = None
+    key: Optional[str] = None
+    version: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _parse(self) -> "RegistryRef":
+        v = self.value
+        if not isinstance(v, str) or not v.startswith("registry://"):
+            raise ValueError("RegistryRef must start with 'registry://'")
+        rest = v[len("registry://") :]
+        if "@" in rest:
+            path, ver = rest.split("@", 1)
+        else:
+            path, ver = rest, "latest"
+        if "/" not in path:
+            raise ValueError("RegistryRef path must be '{kind}/{key}'")
+        kind_str, key = path.split("/", 1)
+        if kind_str not in ("mcp", "openapi", "agent", "function"):
+            raise ValueError("RegistryRef kind must be one of mcp|openapi|agent|function")
+        self.kind = kind_str  # type: ignore[assignment]
+        self.key = key
+        self.version = ver
+        return self
 
 
-class ArtifactServiceConfig(BaseModel):
-    """Config for ArtifactService backends (in-memory, local, s3, mongo, sql)."""
-    type: Literal["in_memory", "s3", "local_folder", "mongo", "sql"] = "in_memory"
-    # s3/mongo
-    bucket_name: Optional[str] = None
-    # s3
-    endpoint_url: Optional[str] = None
-    aws_access_key_id: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
-    region_name: Optional[str] = None
-    s3_prefix: Optional[str] = None
-    # local
-    base_path: Optional[str] = None
-    # mongo
-    mongo_url: Optional[str] = None
-    db_name: Optional[str] = None
-    # sql
-    db_url: Optional[str] = None
-    # generic
-    params: Dict[str, Any] = Field(default_factory=dict)
+class ModelAliasRef(BaseModel):
+    """Reference to a named model alias. Format: alias://{alias}"""
+
+    value: str = Field(
+        ...,
+        json_schema_extra={
+            "markdownDescription": "Model alias reference. Format: alias://{alias}",
+            "examples": ["alias://chat-default"],
+        },
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> "ModelAliasRef":
+        if not isinstance(self.value, str) or not self.value.startswith("alias://"):
+            raise ValueError("ModelAliasRef must start with 'alias://'")
+        if len(self.value.split("alias://", 1)[1].strip()) == 0:
+            raise ValueError("ModelAliasRef must include an alias name")
+        return self
 
 
-class MemoryServiceConfig(BaseModel):
-    """Config for MemoryService (in-memory or extras-backed)."""
-    type: Optional[Literal["in_memory", "redis", "mongo", "sql", "yaml_file"]] = None
-    # redis (discrete fields)
-    redis_host: Optional[str] = None
-    redis_port: Optional[int] = None
-    redis_db: Optional[int] = None
-    # mongo
-    mongo_url: Optional[str] = None
-    db_name: Optional[str] = None
-    # sql
-    db_url: Optional[str] = None
-    # yaml
-    base_path: Optional[str] = None
-    # generic
-    params: Dict[str, Any] = Field(default_factory=dict)
+class RefOrInline(BaseModel):
+    """Generic wrapper: either an external ref or inline object."""
+
+    ref: Optional[RegistryRef] = None
+    inline: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def _oneof(self) -> "RefOrInline":
+        if bool(self.ref) == bool(self.inline):
+            raise ValueError("Provide exactly one of 'ref' or 'inline'")
+        return self
 
 
-class RuntimeConfig(BaseModel):
-    """Runtime tuning for runs (streaming mode, limits, artifact capture)."""
-    streaming_mode: Optional[Literal["NONE", "SSE", "BIDI"]] = None
-    max_llm_calls: Optional[int] = None
-    save_input_blobs_as_artifacts: Optional[bool] = None
-    speech: Dict[str, Any] = Field(default_factory=dict)
+# =====================
+# Tools (attachable)
+# =====================
 
 
-class AgentConfig(BaseModel):
-    """Agent definition for building LlmAgent instances.
+class ToolAuthConfig(BaseModel):
+    """Optional authentication config attached to a tool invocation.
 
-    Supports advanced LlmAgent fields like description, include_contents,
-    output_key, generate_content_config, planner, code_executor, and
-    structured input/output schemas via dotted imports.
+    This kit does not perform authentication; it only validates structure so
+    downstream runtimes can act on it. When present, `auth_scheme` must be a
+    non-empty string recognized by the runtime (e.g., bearer|header|query|basic|oauth2).
     """
+
+    auth_scheme: str = Field(
+        ..., json_schema_extra={"markdownDescription": "Authentication scheme identifier (e.g., bearer, header, query)"}
+    )
+    params: Dict[str, Any] = Field(
+        default_factory=dict,
+        json_schema_extra={"markdownDescription": "Scheme-specific parameters (token, header name, etc.)"},
+    )
+
+    @field_validator("auth_scheme")
+    @classmethod
+    def _non_empty_scheme(cls, v: str) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("auth_config.auth_scheme must be a non-empty string")
+        return v
+
+
+class McpTool(BaseModel):
+    kind: Literal["mcp"] = Field(
+        default="mcp",
+        json_schema_extra={"markdownDescription": "MCP tool entry"},
+    )
+    server: RefOrInline = Field(
+        ..., json_schema_extra={"markdownDescription": "Server reference or inline MCP server config"}
+    )
+    tool: str = Field(..., json_schema_extra={"markdownDescription": "Tool name exposed by the MCP server"})
+    config: Dict[str, Any] = Field(
+        default_factory=dict, json_schema_extra={"markdownDescription": "Optional per-tool configuration"}
+    )
+    auth_config: Optional[ToolAuthConfig] = Field(
+        default=None,
+        json_schema_extra={"markdownDescription": "Optional authentication config; when omitted, runtimes may skip auth."},
+    )
+
+    @model_validator(mode="after")
+    def _validate_kinds(self) -> "McpTool":
+        if self.server and self.server.ref:
+            if self.server.ref.kind != "mcp":
+                raise ValueError("mcp tool 'server.ref' must be kind 'mcp'")
+        return self
+
+
+class OpenApiTool(BaseModel):
+    kind: Literal["openapi"] = Field(default="openapi")
+    spec: RefOrInline
+    operationId: str = Field(..., json_schema_extra={"markdownDescription": "OpenAPI operationId to call"})
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    body: Optional[Dict[str, Any]] = None
+    headers: Dict[str, str] = Field(default_factory=dict)
+    auth_config: Optional[ToolAuthConfig] = Field(
+        default=None,
+        json_schema_extra={"markdownDescription": "Optional authentication config; when omitted, runtimes may skip auth."},
+    )
+
+    @model_validator(mode="after")
+    def _validate_kinds(self) -> "OpenApiTool":
+        if self.spec and self.spec.ref:
+            if self.spec.ref.kind != "openapi":
+                raise ValueError("openapi tool 'spec.ref' must be kind 'openapi'")
+        return self
+
+
+class FunctionToolDef(BaseModel):
+    import_: Optional[str] = Field(default=None, alias="import")
+    code: Optional[str] = None
+    deps: List[str] = Field(default_factory=list)
+
+
+class FunctionTool(BaseModel):
+    kind: Literal["function"] = Field(default="function")
+    function: Union[RefOrInline, FunctionToolDef]
+    signature: Dict[str, Any] = Field(default_factory=dict)
+    policy: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_kinds(self) -> "FunctionTool":
+        if isinstance(self.function, RefOrInline) and self.function.ref:
+            if self.function.ref.kind != "function":
+                raise ValueError("function tool 'function.ref' must be kind 'function'")
+        return self
+
+
+class AgentTool(BaseModel):
+    kind: Literal["agent"] = Field(default="agent")
+    agent: Union[str, RegistryRef] = Field(
+        ..., json_schema_extra={"markdownDescription": "Reference to another agent by name or registry ref"}
+    )  # AgentRef
+
+    @model_validator(mode="after")
+    def _validate_kinds(self) -> "AgentTool":
+        if isinstance(self.agent, RegistryRef) and self.agent.kind != "agent":
+            raise ValueError("agent tool 'agent' ref must be kind 'agent'")
+        return self
+
+
+Tool = Union[McpTool, OpenApiTool, FunctionTool, AgentTool]
+
+
+# =====================
+# Agents (variants)
+# =====================
+
+
+class LlmAgentCfg(BaseModel):
+    type: Literal["llm"] = "llm"
     name: str
-    # Phase 1: support remote A2A client kind
-    kind: Literal["llm", "a2a_remote"] = "llm"
-    client: Optional[str] = None  # required when kind=a2a_remote
-    model: Any  # string or mapping (e.g., {type: litellm, model: "openai/gpt-4o", api_base: ...})
-    instruction: Optional[str] = None
     description: Optional[str] = None
-    tools: List[Any] = Field(default_factory=list)  # may be string or dict entries
-    sub_agents: List[str] = Field(default_factory=list)
-    # Advanced LlmAgent options (all optional, passed through when present)
-    include_contents: Optional[str] = None  # 'default' | 'none'
-    output_key: Optional[str] = None
-    generate_content_config: Dict[str, Any] = Field(default_factory=dict)
-    # Planners and code execution (optional, guarded by availability)
-    planner: Optional[Dict[str, Any]] = None  # e.g., {type: built_in, thinking_config:{...}} | {type: plan_react}
-    code_executor: Optional[str] = None  # dotted ref to a BaseCodeExecutor factory or instance
-    # Structured IO (Python: dotted refs to Pydantic BaseModel classes)
-    input_schema: Optional[str] = None
-    output_schema: Optional[str] = None
+    model: Optional[Union[str, ModelAliasRef]] = Field(
+        default=None,
+        json_schema_extra={"markdownDescription": "string model id or alias://name"},
+    )
+    instruction: str = Field(..., json_schema_extra={"markdownDescription": "System instruction for the agent"})
+    tools: List[Tool] = Field(
+        default_factory=list,
+        json_schema_extra={
+            "markdownDescription": "Attachable tools (mcp, openapi, function, or agent)",
+            "examples": [
+                {"kind": "function", "function": {"import": "pkg.mod:fn"}},
+                {"kind": "mcp", "server": {"ref": {"value": "registry://mcp/files@latest"}}, "tool": "read_file"},
+                {"kind": "agent", "agent": "helper"},
+            ],
+        },
+    )
+    sub_agents: List[Union[str, RegistryRef]] = Field(default_factory=list)
+    transfer: Dict[str, Any] = Field(default_factory=dict)
+    output_schema: Optional[Dict[str, Any]] = None
+    
+    @field_validator("instruction")
+    @classmethod
+    def _non_empty_instruction(cls, v: str) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("instruction must be a non-empty string")
+        return v
 
-    def model_post_init(self, __context: Any) -> None:  # type: ignore[override]
-        # Ensure client is provided when kind=a2a_remote
-        if self.kind == "a2a_remote" and not self.client:
-            raise ValueError("AgentConfig.client is required when kind='a2a_remote'")
+    @field_validator("name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        if not re.match(r"^[A-Za-z][-_A-Za-z0-9]{0,63}$", v):
+            raise ValueError("agent name must match ^[A-Za-z][-_A-Za-z0-9]{0,63}$")
+        return v
+
+    @model_validator(mode="after")
+    def _validate_sub_agents_kinds(self) -> "LlmAgentCfg":
+        for r in self.sub_agents:
+            if isinstance(r, RegistryRef) and r.kind != "agent":
+                raise ValueError("llm sub_agents registry refs must be kind 'agent'")
+        return self
 
 
-class GroupConfig(BaseModel):
-    """Simple named group for convenience, mapping to agent names."""
+class SequentialAgentCfg(BaseModel):
+    type: Literal["workflow.sequential"] = "workflow.sequential"
     name: str
-    members: List[str]
+    description: Optional[str] = None
+    sub_agents: List[Union[str, RegistryRef]] = Field(
+        ..., json_schema_extra={"markdownDescription": "Run sub_agents in order"}
+    )
+
+    @field_validator("sub_agents")
+    @classmethod
+    def _non_empty_subs(cls, v: List[Union[str, RegistryRef]]):
+        if not v:
+            raise ValueError("sequential agent requires at least one sub_agent")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        if not re.match(r"^[A-Za-z][-_A-Za-z0-9]{0,63}$", v):
+            raise ValueError("agent name must match ^[A-Za-z][-_A-Za-z0-9]{0,63}$")
+        return v
 
 
-class WorkflowConfig(BaseModel):
-    """Workflow composition (sequential, parallel, loop) over agent names."""
-    type: Optional[Literal["sequential", "parallel", "loop"]] = None
-    nodes: List[str] = Field(default_factory=list)
+class ParallelAgentCfg(BaseModel):
+    type: Literal["workflow.parallel"] = "workflow.parallel"
+    name: str
+    description: Optional[str] = None
+    sub_agents: List[Union[str, RegistryRef]] = Field(
+        ..., json_schema_extra={"markdownDescription": "Run sub_agents in parallel"}
+    )
+    merge: Optional[Union[str, RegistryRef]] = Field(
+        default=None, json_schema_extra={"markdownDescription": "Optional merger agent to combine results"}
+    )
+
+    @field_validator("sub_agents")
+    @classmethod
+    def _non_empty_parallel_subs(cls, v: List[Union[str, RegistryRef]]):
+        if not v:
+            raise ValueError("parallel agent requires at least one sub_agent")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        if not re.match(r"^[A-Za-z][-_A-Za-z0-9]{0,63}$", v):
+            raise ValueError("agent name must match ^[A-Za-z][-_A-Za-z0-9]{0,63}$")
+        return v
+
+    @field_validator("merge")
+    @classmethod
+    def _merge_kind(cls, v: Optional[Union[str, RegistryRef]]):
+        if isinstance(v, RegistryRef) and v.kind != "agent":
+            raise ValueError("parallel 'merge' registry ref must be kind 'agent'")
+        return v
+
+
+class LoopAgentCfg(BaseModel):
+    type: Literal["workflow.loop"] = "workflow.loop"
+    name: str
+    description: Optional[str] = None
+    body: Union[str, RegistryRef] = Field(..., json_schema_extra={"markdownDescription": "Agent to repeat"})
+    until: str = Field(..., json_schema_extra={"markdownDescription": "Termination condition expression"})
+    max_iters: Optional[int] = None
+
+    @field_validator("until")
+    @classmethod
+    def _non_empty_until(cls, v: str) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("loop agent requires a non-empty 'until' condition")
+        return v
+
+    @field_validator("max_iters")
+    @classmethod
+    def _positive_iters(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
+            raise ValueError("max_iters must be positive when provided")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        if not re.match(r"^[A-Za-z][-_A-Za-z0-9]{0,63}$", v):
+            raise ValueError("agent name must match ^[A-Za-z][-_A-Za-z0-9]{0,63}$")
+        return v
+
+
+class CustomAgentCfg(BaseModel):
+    type: Literal["custom"] = "custom"
+    name: str
+    class_: str = Field(alias="class", json_schema_extra={"markdownDescription": "Import path to concrete agent class"})
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("name")
+    @classmethod
+    def _valid_name(cls, v: str) -> str:
+        if not re.match(r"^[A-Za-z][-_A-Za-z0-9]{0,63}$", v):
+            raise ValueError("agent name must match ^[A-Za-z][-_A-Za-z0-9]{0,63}$")
+        return v
+
+
+Agent = Union[LlmAgentCfg, SequentialAgentCfg, ParallelAgentCfg, LoopAgentCfg, CustomAgentCfg]
+
+
+# =====================
+# Top-level config
+# =====================
+
+
+class Metadata(BaseModel):
+    name: str = Field(..., json_schema_extra={"markdownDescription": "Application name"})
+    description: Optional[str] = Field(default=None, json_schema_extra={"markdownDescription": "Short description"})
+    labels: Dict[str, str] = Field(default_factory=dict, json_schema_extra={"markdownDescription": "Freeform labels"})
+
+
+class Defaults(BaseModel):
+    model_alias: Optional[str] = Field(default=None, json_schema_extra={"markdownDescription": "Default model alias for LLM agents"})
+    runner_policy: Optional[Literal["sandbox", "burst"]] = Field(default=None)
+    egress_policy: List[str] = Field(default_factory=list, json_schema_extra={"markdownDescription": "Allowed egress host patterns"})
+
+
+class Registries(BaseModel):
+    mcp: List[RefOrInline] = Field(default_factory=list, json_schema_extra={"markdownDescription": "MCP servers"})
+    openapi: List[RefOrInline] = Field(default_factory=list, json_schema_extra={"markdownDescription": "OpenAPI specs"})
+    agents: List[RefOrInline] = Field(default_factory=list, json_schema_extra={"markdownDescription": "Agent registries"})
+    functions: List[RefOrInline] = Field(default_factory=list, json_schema_extra={"markdownDescription": "Function registries"})
+
+
+class SharedBackends(BaseModel):
+    sessions: Optional[Dict[str, Any]] = Field(default=None, json_schema_extra={"markdownDescription": "Declared session backend (not executed here)"})
+    memory: Optional[Dict[str, Any]] = Field(default=None, json_schema_extra={"markdownDescription": "Declared memory backend (not executed here)"})
+    artifacts: Optional[Dict[str, Any]] = Field(default=None, json_schema_extra={"markdownDescription": "Declared artifacts backend (not executed here)"})
 
 
 class AppConfig(BaseModel):
-    """Top-level application config loaded from YAML."""
-    services: Dict[str, Any] = Field(default_factory=dict)
-    # Accept either structured config or URI string for services
-    session_service: SessionServiceConfig | str = Field(default_factory=SessionServiceConfig)
-    artifact_service: ArtifactServiceConfig | str = Field(default_factory=ArtifactServiceConfig)
-    memory_service: Optional[MemoryServiceConfig | str] = None
-    workflow: Optional[WorkflowConfig] = None
-    # Defaults for LiteLLM providers, keyed by provider name (e.g., openai, ollama_chat)
-    model_providers: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    # Optional shared toolsets that agents can reference by name via {use: <key>}
-    toolsets: Dict[str, Any] = Field(default_factory=dict)
-    # Optional global registries
-    tools_registry: Dict[str, Any] = Field(default_factory=dict)
-    agents_registry: Dict[str, Any] = Field(default_factory=dict)
-    agents: List[AgentConfig] = Field(default_factory=list)
-    groups: List[GroupConfig] = Field(default_factory=list)
-    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
-    # Optional root-level instruction applied to the root agent
-    global_instruction: Optional[str] = None
+    schema_version: str = Field(
+        ..., json_schema_extra={"examples": ["0.1.0"], "markdownDescription": "Semantic version of the schema"}
+    )
+    metadata: Metadata
+    defaults: Optional[Defaults] = None
+    registries: Optional[Registries] = None
+    agents: List[Agent] = Field(
+        ..., json_schema_extra={
+            "markdownDescription": "List of agent definitions (LLM, workflow, custom)",
+            "examples": [
+                {
+                    "type": "llm",
+                    "name": "planner",
+                    "instruction": "Plan tasks and call tools",
+                    "model": "gemini-2.5-flash",
+                }
+            ],
+        },
+    )
+    backends: Optional[SharedBackends] = Field(
+        default=None, json_schema_extra={"markdownDescription": "Declare shared backends only; not executed here."}
+    )
 
-    # Phase 1 additions: external registries and A2A clients
-    a2a_clients: List["A2AClientConfig"] = Field(default_factory=list)
-    mcp_registry: Optional["McpRegistryConfig"] = None
-    openapi_registry: Optional["OpenApiRegistryConfig"] = None
+    @field_validator("schema_version")
+    @classmethod
+    def _semver(cls, v: str) -> str:
+        if not re.match(r"^\d+\.\d+\.\d+$", v):
+            raise ValueError("schema_version must be semver, e.g., 0.1.0")
+        return v
+
+    @model_validator(mode="after")
+    def _unique_agent_names(self) -> "AppConfig":
+        names: Dict[str, int] = {}
+        for a in self.agents:
+            name = getattr(a, "name", None)
+            if not name:
+                continue
+            names[name] = names.get(name, 0) + 1
+        dups = [n for n, c in names.items() if c > 1]
+        if dups:
+            raise ValueError(f"duplicate agent names: {', '.join(sorted(dups))}")
+        return self
 
 
-def _interpolate_env(text: str) -> str:
-    """Substitute ${VAR} and $VAR sequences with environment values."""
-    def repl(match: "re.Match[str]") -> str:  # type: ignore[name-defined]
-        var = match.group(1) or match.group(2)
-        return os.environ.get(var, "")
+# =====================
+# Loader & Schema Export
+# =====================
 
-    import re
 
-    pattern = re.compile(r"\$\{([^}]+)\}|\$(\w+)")
-    return pattern.sub(repl, text)
+def load_config(yaml_or_dict: Union[str, Dict[str, Any]]) -> AppConfig:
+    data: Dict[str, Any]
+    if isinstance(yaml_or_dict, str):
+        data = yaml.safe_load(yaml_or_dict) or {}
+    else:
+        data = yaml_or_dict
+    try:
+        return AppConfig.model_validate(data)
+    except ValidationError as e:
+        # Bubble up a concise error for callers; tests assert on structure
+        raise ValueError(str(e))
 
 
 def load_config_file(path: Path) -> AppConfig:
-    """Load an AppConfig from a YAML file with env interpolation.
-
-    Also supports back-compat for services nested under a `services:` block.
-    """
     raw = Path(path).read_text(encoding="utf-8")
-    raw = _interpolate_env(raw)
-    data = yaml.safe_load(raw) or {}
-    # Back-compat: allow services: {session_service, artifact_service, memory_service}
-    if isinstance(data.get("services"), dict):
-        svc = data["services"]
-        for key in ("session_service", "artifact_service", "memory_service"):
-            if key in svc and key not in data:
-                data[key] = svc[key]
-    try:
-        return AppConfig.model_validate(data)
-    except ValidationError as e:  # pragma: no cover
-        # Re-raise with a shorter message for CLI
-        raise ValueError(e) from e
-
-
-EXAMPLE_YAML = """
-services:
-  session_service: {type: in_memory}
-  artifact_service: {type: local_folder, base_path: ./artifacts_storage}
-
-agents:
-  - name: planner
-    model: gemini-2.0-flash
-    instruction: You are a helpful planner.
-    tools: []
-
-groups:
-  - name: demo
-    members: [planner]
-
-runtime:
-  streaming_mode: NONE
-  max_llm_calls: 200
-""".strip()
-
-
-def write_example_config(path: Path) -> None:
-    """Write a minimal example config YAML to the target path."""
-    path.write_text(EXAMPLE_YAML + "\n", encoding="utf-8")
+    return load_config(raw)
 
 
 def export_app_config_schema() -> dict:
-    """Return JSON schema for AppConfig for external validators/IDEs."""
+    """Return JSON schema for AppConfig with ADK‑aligned agent variants."""
     return AppConfig.model_json_schema()
-
-
-# =======================
-# Phase 1 new schema types
-# =======================
-
-
-class A2AClientConfig(BaseModel):
-    """Configuration for a remote A2A Agent endpoint consumed by this app.
-
-    Minimal shape for Phase 1; actual client wiring added in a later phase.
-    """
-    id: str
-    # New: prefer agent_card_url; keep url for backward-compat (treated as agent card URL)
-    agent_card_url: Optional[str] = None
-    url: Optional[str] = None
-    headers: Dict[str, Any] = Field(default_factory=dict)
-    timeout: Optional[float] = None
-    description: Optional[str] = None
-
-
-def parse_service_uri(kind: str, uri: str) -> SessionServiceConfig | ArtifactServiceConfig | MemoryServiceConfig:
-    """Parse a service URI string into a structured config.
-
-    Supported schemes (conservative defaults):
-    - Sessions/Memory:
-      - redis://host:port/db
-      - mongodb://... or mongo://...
-      - sqlite:///..., postgresql://..., mysql://... (treated as SQL "db_url")
-      - yaml://<base_path>
-      - memory: (in-memory)
-    - Artifacts:
-      - file://<base_path> (or local://<base_path>)
-      - s3://bucket/prefix
-      - mongodb://... (db_name from path)
-      - sqlite/postgresql/mysql (treated as SQL "db_url")
-
-    If insufficient information is provided, returns an in-memory config for the kind.
-    """
-    from urllib.parse import urlparse
-
-    k = kind.strip().lower()
-    u = urlparse(uri)
-    scheme = (u.scheme or "").lower()
-
-    def _inmem():
-        if k == "session":
-            return SessionServiceConfig(type="in_memory")
-        if k == "artifact":
-            return ArtifactServiceConfig(type="in_memory")
-        return MemoryServiceConfig(type="in_memory")
-
-    if not scheme:
-        return _inmem()
-
-    # Memory shorthand
-    if scheme in {"memory", "inmemory"}:
-        return _inmem()
-
-    # YAML-backed
-    if scheme in {"yaml", "file+yaml", "yaml+file"}:
-        base = (u.netloc + u.path).lstrip("/")
-        if k == "session":
-            return SessionServiceConfig(type="yaml_file", base_path=base or None)
-        if k == "artifact":
-            # No YAML artifact store; fall back to local folder if given
-            return ArtifactServiceConfig(type="local_folder", base_path=base or None)
-        return MemoryServiceConfig(type="yaml_file", base_path=base or None)
-
-    # Redis
-    if scheme == "redis":
-        if k == "session":
-            return SessionServiceConfig(type="redis", redis_url=uri)
-        if k == "memory":
-            db = None
-            try:
-                if u.path and len(u.path) > 1:
-                    db = int(u.path.lstrip("/"))
-            except Exception:
-                db = None
-            return MemoryServiceConfig(
-                type="redis",
-                redis_host=u.hostname or None,
-                redis_port=u.port or None,
-                redis_db=db,
-            )
-        return _inmem()
-
-    # Mongo
-    if scheme in {"mongodb", "mongo"}:
-        db_name = u.path.lstrip("/") or None
-        if k == "session":
-            return SessionServiceConfig(type="mongo", mongo_url=uri, db_name=db_name)
-        if k == "artifact":
-            return ArtifactServiceConfig(type="mongo", mongo_url=uri, db_name=db_name)
-        return MemoryServiceConfig(type="mongo", mongo_url=uri, db_name=db_name)
-
-    # SQL-like (sqlite/postgres/mysql)
-    if scheme in {"sqlite", "postgresql", "postgres", "mysql"}:
-        if k == "session":
-            return SessionServiceConfig(type="sql", db_url=uri)
-        if k == "artifact":
-            return ArtifactServiceConfig(type="sql", db_url=uri)
-        return MemoryServiceConfig(type="sql", db_url=uri)
-
-    # Local folder artifacts
-    if k == "artifact" and scheme in {"file", "local"}:
-        base = (u.netloc + u.path).lstrip("/")
-        return ArtifactServiceConfig(type="local_folder", base_path=base or None)
-
-    # S3 artifacts
-    if k == "artifact" and scheme == "s3":
-        bucket = u.netloc or None
-        prefix = u.path.lstrip("/") or None
-        return ArtifactServiceConfig(type="s3", bucket_name=bucket, s3_prefix=prefix)
-
-    # Unknown scheme → in-memory
-    return _inmem()
-
-
-class McpRegistryServer(BaseModel):
-    id: str
-    mode: Literal["sse", "stdio", "http"] = "sse"
-    # SSE/HTTP
-    url: Optional[str] = None
-    headers: Dict[str, Any] = Field(default_factory=dict)
-    timeout: Optional[float] = None
-    sse_read_timeout: Optional[float] = None
-    # stdio
-    command: Optional[str] = None
-    args: List[str] = Field(default_factory=list)
-    env: Dict[str, str] = Field(default_factory=dict)
-    # filters and auth surface (forwarded to toolset later)
-    tool_filter: List[str] = Field(default_factory=list)
-    auth_scheme: Optional[str] = None
-    auth_credential: Optional[str] = None
-
-
-class RegistryGroup(BaseModel):
-    id: str
-    include: List[str] = Field(default_factory=list)
-
-
-class McpRegistryConfig(BaseModel):
-    servers: List[McpRegistryServer] = Field(default_factory=list)
-    groups: List[RegistryGroup] = Field(default_factory=list)
-
-
-class OpenApiAuthConfig(BaseModel):
-    """Auth configuration for OpenAPI toolsets.
-
-    - bearer: uses `value` as token
-    - header: use `name` and `value`
-    - query: use `name` and `value`
-    """
-    type: Literal["bearer", "header", "query"]
-    name: Optional[str] = None
-    value: Optional[str] = None
-
-
-class OpenApiApiConfig(BaseModel):
-    id: str
-    spec: Dict[str, Any]
-    spec_type: Literal["json", "yaml"] | None = None
-    headers: Dict[str, Any] = Field(default_factory=dict)
-    auth: Optional[OpenApiAuthConfig] = None
-    operation_filter: List[str] = Field(default_factory=list)
-    tag_filter: List[str] = Field(default_factory=list)
-    tool_filter: List[str] = Field(default_factory=list)
-    timeout: Optional[float] = None
-
-
-class OpenApiRegistryConfig(BaseModel):
-    fetch_allowlist: List[str] = Field(default_factory=list)
-    apis: List[OpenApiApiConfig] = Field(default_factory=list)
-    groups: List[RegistryGroup] = Field(default_factory=list)
-
-
-# ======================
-# Validation entry points
-# ======================
-
-
-def validate_app_config(cfg: AppConfig) -> List[str]:
-    """Validate cross-references and groups for registries and agents.
-
-    Args:
-        cfg: Application configuration to validate.
-
-    Returns:
-        List of human-readable diagnostics. Empty list means OK.
-    """
-    issues: List[str] = []
-
-    # Uniqueness for ids
-    def _check_dupes(items: List[str], label: str) -> None:
-        seen: Dict[str, int] = {}
-        for x in items:
-            seen[x] = seen.get(x, 0) + 1
-        for k, n in seen.items():
-            if n > 1:
-                issues.append(f"duplicate {label} id: {k}")
-
-    _check_dupes([a.id for a in cfg.a2a_clients], "a2a_client")
-    if cfg.mcp_registry:
-        _check_dupes([s.id for s in cfg.mcp_registry.servers], "mcp server")
-        # Group includes validity
-        valid = {s.id for s in cfg.mcp_registry.servers}
-        for g in cfg.mcp_registry.groups:
-            for ref in g.include:
-                if ref not in valid:
-                    issues.append(f"mcp group '{g.id}' includes unknown server id '{ref}'")
-
-    if cfg.openapi_registry:
-        _check_dupes([a.id for a in cfg.openapi_registry.apis], "openapi api")
-        valid = {a.id for a in cfg.openapi_registry.apis}
-        for g in cfg.openapi_registry.groups:
-            for ref in g.include:
-                if ref not in valid:
-                    issues.append(f"openapi group '{g.id}' includes unknown api id '{ref}'")
-
-        # If spec.url is used, ensure it is allowlisted
-        allow = cfg.openapi_registry.fetch_allowlist
-        if allow:
-            from urllib.parse import urlparse
-
-            for api in cfg.openapi_registry.apis:
-                spec = api.spec or {}
-                url = spec.get("url") if isinstance(spec, dict) else None
-                if url:
-                    host = urlparse(str(url)).netloc
-                    if not _host_allowlisted(host, allow):
-                        issues.append(
-                            f"openapi api '{api.id}' url host '{host}' not allowlisted"
-                        )
-
-    # Agent kind cross-checks
-    for a in cfg.agents:
-        if a.kind == "a2a_remote":
-            if not a.client:
-                issues.append(f"agent '{a.name}' requires 'client' when kind=a2a_remote")
-            elif all(c.id != a.client for c in cfg.a2a_clients):
-                issues.append(
-                    f"agent '{a.name}' references unknown a2a_client id '{a.client}'"
-                )
-
-    return issues
-
-
-def _host_allowlisted(host: str, allowlist: List[str]) -> bool:
-    """Simple hostname allowlist with wildcard prefix support (e.g., *.example.com)."""
-    host = host.lower()
-    for pat in allowlist:
-        p = pat.lower().strip()
-        if p == host:
-            return True
-        if p.startswith("*."):
-            suffix = p[1:]  # keep leading dot
-            if host.endswith(suffix):
-                return True
-    return False
