@@ -27,63 +27,77 @@ Be the **single source of truth** for the Agentic Composer **system YAML**—ali
 
 ---
 
-#### 1.1 LLM Agents (ADK: `LlmAgent` / `Agent`)
+#### 1.1 LLM Agents (ADK: `LlmAgent`)
 
 Flexible, language-centric agents that can decide tool use & delegation. ([Google GitHub][1])
 
-```yaml
-type: llm
-name: string
-description?: string
-model?: alias://chat-default
-instruction: string            # system prompt
-tools?: (McpTool | OpenApiTool | FunctionTool | AgentTool)[]
-sub_agents?: AgentRef[]        # for LLM-driven delegation / transfer
-transfer?: {                   # optional hints
-  allow_to_peers?: boolean
-  allow_to_parent?: boolean
-}
-output_schema?: JSONSchema?    # optional tool-structured guardrails
-```
+Required
+- `type: llm`
+- `name: string`
+- `instruction: string`
 
-* `AgentTool` wraps another declared agent (by ref) so an LLM agent can **explicitly invoke a sub-agent as a tool** (ADK’s pattern). ([Google GitHub][2])
+Supported fields (ADK-aligned; all Optional unless noted)
+- `description`
+- `model: string | alias://name`
+- `tools: (McpTool | OpenApiTool | FunctionTool | AgentTool)[]`
+- `sub_agents: AgentRef[]`
+- `include_contents: 'default' | 'none'`
+- `input_schema: 'module:Class' | 'module.Class'` (agent-as-tool input)
+- `output_schema: 'module:Class'` (structured replies; disables tools at runtime)
+- `output_key: string` (session state key for downstream steps)
+- `disallow_transfer_to_parent: boolean`
+- `disallow_transfer_to_peers: boolean`
+- `generate_content_config: object` (non-thinking tuning)
+- `planner: { type: 'built_in', thinking_config: {...} } | { type: 'plan_react' }`
+- `code_executor: 'module:Class'`
+- Callbacks (lists of dotted refs):
+  - `before_model_callbacks`, `after_model_callbacks`, `before_tool_callbacks`, `after_tool_callbacks`
+- `global_instruction: string` (root-only advisory)
+
+Notes
+- `AgentTool` wraps another agent so an LLM can explicitly invoke it as a tool. ([Google GitHub][2])
+- Graph hints: (a) output_schema + tools → tools disabled at runtime; (b) missing `output_key` in sequential pipelines.
 
 #### 1.2 Workflow Agents (deterministic control)
 
 Pure control-flow agents that orchestrate **sub\_agents** without LLM for flow control. ([Google GitHub][3])
 
-* **SequentialAgent**
+* **SequentialAgent** (ADK: sub_agents, optional before/after callbacks)
 
 ```yaml
 type: workflow.sequential
 name: string
 description?: string
-sub_agents: AgentRef[]   # run in order; shared invocation context
+sub_agents: AgentRef[]
+before_agent_callback?: string | string[]
+after_agent_callback?: string | string[]
 ```
 
 (Executes sub-agents one after another; pass state via invocation context.) ([Google GitHub][4])
 
-* **ParallelAgent**
+* **ParallelAgent** (ADK: sub_agents, optional before/after callbacks)
 
 ```yaml
 type: workflow.parallel
 name: string
 description?: string
-sub_agents: AgentRef[]   # run in parallel
-merge?: AgentRef?        # optional merger agent to combine results
+sub_agents: AgentRef[]
+before_agent_callback?: string | string[]
+after_agent_callback?: string | string[]
 ```
 
-(Parallel orchestration + optional merger/aggregator step.) ([Google GitHub][5])
+(Parallel orchestration; synthesis is typically a subsequent step, not a field.) ([Google GitHub][5])
 
-* **LoopAgent**
+* **LoopAgent** (ADK: iterates sub_agents; stops on escalate or `max_iterations`)
 
 ```yaml
 type: workflow.loop
 name: string
 description?: string
-body: AgentRef           # the agent to repeat
-until: string            # termination condition (expression string)
-max_iters?: int
+sub_agents: AgentRef[]   # run each iteration in order
+max_iterations?: int
+before_agent_callback?: string | string[]
+after_agent_callback?: string | string[]
 ```
 
 > All **sub\_agents/AgentRef** must resolve to agents defined in the same document (or via `RegistryRef` of kind `agent`). The kit **does not** execute them.
@@ -121,6 +135,7 @@ operationId: string
 parameters?: object
 body?: object
 headers?: map<string,string>
+auth_config?: { auth_scheme: string, params?: object }
 ```
 
 * **Function Tool** (function-calling)
@@ -169,7 +184,7 @@ artifacts?:{ kind: 's3'|'fs'|'none', label?: string }
 * Enforces variant discriminators (`type`) and required fields per ADK category.
 * Normalizes defaults; reports path-aware, suggestion-rich errors.
 
-### 4) Deterministic graph builder
+### 4) Deterministic graph builder (S2 done)
 
 `build_system_graph(cfg) -> { nodes: Node[], edges: Edge[] }`
 
@@ -179,17 +194,23 @@ artifacts?:{ kind: 's3'|'fs'|'none', label?: string }
   * `agent.llm → tool.*` (attached tools)
   * `agent.llm → agent.*` (sub\_agents; transfer/coordination)
   * `workflow.sequential → agent.*` (ordered)
-  * `workflow.parallel → agent.*` (fan-out) and `→ merger?`
-  * `workflow.loop → agent.*` (body)
+  * `workflow.parallel → agent.*` (fan-out)
+  * `workflow.loop → agent.*` (iterates sub_agents)
 * Emits `hints[]` for: missing model alias on LLMAgent, empty sub\_agents in workflow, loop without `until`, unresolved AgentRef, tool op not found.
+* S2 Hints implemented:
+  * LLM missing model and no defaults.model_alias
+  * LLM with output_schema + tools (tools disabled at runtime)
+  * Sequential: upstream LLM with no output_key (downstream may lack inputs)
+  * PlanReAct with output_schema (conflict)
+  * BuiltInPlanner + thinking_config under generate_content_config (suggest move to planner)
 
-### 5) Quick-fix catalog
+### 5) Quick-fix catalog (S3 target)
 
 `get_quick_fixes(validation_errors, cfg, indexes?) -> Fix[]`
 
 * **LLM agent missing model** → add `model: alias://chat-default` (if default exists).
 * **Sequential/Parallel agent with no sub\_agents** → insert placeholder sub\_agent stub.
-* **Loop agent missing until** → add `until: "iteration >= 3"` template.
+* (Removed) Loop `until` — align with ADK: use `max_iterations` and escalate semantics only.
 * **Unknown AgentRef** → create stub agent or fix to closest name.
 * **Unknown operationId/tool** → suggest from provided `SpecIndex` / `ToolIndex`.
 * **No egress/runner defaults** → add to `defaults`.
@@ -216,7 +237,7 @@ artifacts?:{ kind: 's3'|'fs'|'none', label?: string }
 ## Tests
 
 * **Schema round-trip** (Pydantic ↔ YAML), variant discriminators honored.
-* **Graph determinism** across all ADK categories.
+* **Graph determinism** across all ADK categories (S2 covered).
 * **Ref/alias validation** (strict `registry://` & `alias://`).
 * **Quick-fix** idempotency; suggestions from injected indexes.
 * **Lock-plan determinism** given fixed resolves.
@@ -230,7 +251,7 @@ artifacts?:{ kind: 's3'|'fs'|'none', label?: string }
 Agent variants (`llm`, `workflow.*`, `custom`), tools, refs, backends; discriminators & validators.
 
 **S2 — Graph Builder**
-Node taxonomy + stable IDs; edges per ADK semantics; hints for missing model/sub\_agents/until.
+Node taxonomy + stable IDs; edges per ADK semantics; hints for missing model, output_schema/tools, missing output_key, planner conflicts, unresolved refs.
 
 **S3 — JSON Schema & Quick-fixes**
 Export schema with docs; build quick-fix catalog keyed to common authoring mistakes.
@@ -243,7 +264,7 @@ Pure lock planner; fingerprints; dependency lister; comprehensive fixtures.
 ## Acceptance
 
 * ADK-aligned **agent categories** parse & validate cleanly (LLM / Sequential / Parallel / Loop / Custom). ([Google GitHub][1])
-* Graph renders deterministically with correct control-flow edges and helpful hints.
+* Graph renders deterministically with correct control-flow edges and helpful hints (S2 implemented).
 * Monaco JSON Schema produces precise markers & actionable quick-fixes.
 * Lock-plan is deterministic given pre-resolved registry & alias inputs (no network/secrets in kit).
 
@@ -253,4 +274,3 @@ Pure lock planner; fingerprints; dependency lister; comprehensive fixtures.
 [4]: https://google.github.io/adk-docs/agents/workflow-agents/sequential-agents/?utm_source=chatgpt.com "Sequential agents - Agent Development Kit"
 [5]: https://google.github.io/adk-docs/agents/workflow-agents/parallel-agents/?utm_source=chatgpt.com "Parallel agents - Agent Development Kit"
 [6]: https://google.github.io/adk-docs/tools/function-tools/?utm_source=chatgpt.com "Overview - Agent Development Kit"
-
