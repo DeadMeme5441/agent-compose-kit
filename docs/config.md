@@ -2,40 +2,42 @@
 title: Configuration
 ---
 
-# Configuration
+# Configuration Schema
 
-Configs are Pydantic-based and support environment variable interpolation.
+Top-level is `AppConfig` (Pydantic v2). Use `compose.export_app_config_schema()` to generate a JSON Schema for editors.
 
-Load and validate
-```python
-from pathlib import Path
-from agent_compose_kit.config.models import load_config_file
+Key fields:
+- `schema_version: string` — semver, e.g., `0.1.0`
+- `metadata: { name, description?, labels?: map }`
+- `defaults?: { model_alias?: string, runner_policy?: 'sandbox'|'burst', egress_policy?: string[] }`
+- `model_aliases?: { aliases: ModelAliasEntry[] }`
+- `registries?: { mcp?: RefOrInline[], openapi?: RefOrInline[], agents?: RefOrInline[], functions?: RefOrInline[] }`
+- `agents: Agent[]`
+- `backends?: { sessions?, memory?, artifacts? }` (declared only; not executed)
 
-cfg = load_config_file(Path("configs/app.yaml"))
-```
+Ref types:
+- `RegistryRef`: `registry://{kind}/{key}@{version|range|latest}` with kind ∈ {mcp, openapi, agent, function}
+- `ModelAliasRef`: `alias://{name}`
+- `RefOrInline<T>`: `{ ref: RegistryRef } | { inline: T }`
 
-Top-level shape (AppConfig)
-- services: `session_service`, `artifact_service`, `memory_service` — each accepts a dict or a URI string.
-- model_providers: defaults merged into LiteLLM model definitions.
-- toolsets: shared toolsets reusable by agents.
-- agents, groups, workflow: define agent graph and composition.
-- registries: `tools_registry`, `agents_registry`, `mcp_registry`, `openapi_registry`.
-- a2a_clients: remote agent clients (agent card URLs).
-- runtime: ADK RunConfig tuning (streaming, limits).
-- global_instruction: optional instruction applied to the root agent at runtime.
+Model aliases (declarative):
+- `ModelAliasEntry`:
+  - `id`: alias name used by `alias://id`
+  - `resolver`: `direct | litellm | class`
+  - `model`: string (model id or endpoint; for litellm use provider-prefixed ids)
+  - `class_ref?`: dotted `module:Class` (when `resolver: class`)
+  - `params?`: runtime args (e.g., `api_base`, `extra_headers`)
+  - `auth_ref?`: reference to secret/profile (e.g., `env:OPENAI_API_KEY`)
+  - `provider?`, `labels?`, `description?`
 
-Environment interpolation
-- `${VAR}` and `$VAR` sequences are substituted from the process env.
+Agents:
+- `type: 'llm' | 'workflow.sequential' | 'workflow.parallel' | 'workflow.loop' | 'custom'`
+- `llm` agents support: `model` (string or `ModelAliasRef`), `instruction` (required), `tools` (see Tools), `sub_agents`, `include_contents`, `input_schema`, `output_schema`, `output_key`, delegation booleans, `generate_content_config`, `planner`, `code_executor`, and callback lists.
+- `workflow.*` agents orchestrate `sub_agents`; `loop` can limit iterations.
+- `custom` declares a class path and params (visualization-only here).
 
-Service URIs
-- Sessions: `sqlite:///...`, `postgresql://...`, `mysql://...`, `redis://host:port/db`, `mongodb://...`, `yaml://path`, `memory:`
-- Artifacts: `file://path`, `s3://bucket/prefix`, `mongodb://...`, `sqlite:///...`
-- Memory: `redis://...`, `mongodb://...`, `sqlite:///...`, `yaml://...`, `memory:`
-
-Programmatic parsing
-```python
-from agent_compose_kit.config.models import parse_service_uri
-
-cfg = parse_service_uri("session", "sqlite:///./sessions.db")
-```
+Validation highlights:
+- strict agent name pattern; duplicate agent names rejected
+- dotted ref checks for schemas and class refs
+- rich JSON Schema `markdownDescription` and error messages for editors
 

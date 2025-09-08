@@ -2,78 +2,42 @@
 title: Examples
 ---
 
-# End-to-end Examples
+# Examples
 
-## Minimal YAML + runner
+## Minimal LLM agent
 ```yaml
-services:
-  session_service: "sqlite:///./sessions.db"
-  artifact_service: "file://./artifacts"
-
+schema_version: 0.1.0
+metadata: { name: demo }
+defaults: { model_alias: chat-default }
+model_aliases:
+  aliases:
+    - { id: chat-default, resolver: direct, model: gemini-2.0-flash }
 agents:
-  - name: planner
-    model: gemini-2.0-flash
-    instruction: You are a helpful planner.
-
-workflow:
-  type: sequential
-  nodes: [planner]
+  - type: llm
+    name: planner
+    instruction: Plan tasks and call tools
 ```
 
+## Tools
+```yaml
+agents:
+  - type: llm
+    name: api_caller
+    instruction: Call API tools
+    tools:
+      - { kind: openapi_toolset, spec: { ref: { value: registry://openapi/petstore@1 } } }
+      - { kind: mcp_toolset, server: { ref: { value: registry://mcp/files@latest } }, tool_filter: [read_file] }
+      - { kind: function, function: { import: tests.helpers:sample_tool }, long_running: true }
+```
+
+## Validate, graph, and quick-fix (Python)
 ```python
 from pathlib import Path
-from agent_compose_kit.config.models import load_config_file
-from agent_compose_kit.runtime.supervisor import build_run_config
-from agent_compose_kit.api.public import SystemManager, SessionManager, run_text, event_to_minimal_json
+from agent_compose_kit import compose
 
-cfg = load_config_file(Path("./configs/app.yaml"))
-sm = SystemManager(base_dir=Path("."))
-root = sm.select_root_agent(cfg)
-runner, _ = sm.build_runner(cfg, root_agent=root)
-
-import asyncio
-
-async def main():
-    sess = await SessionManager(runner).get_or_create(user_id="u1")
-    async for ev in run_text(runner=runner, user_id="u1", session_id=sess.id, text="hello"):
-        print(event_to_minimal_json(ev))
-
-asyncio.run(main())
-```
-
-## Tools via registries
-```yaml
-tools_registry:
-  tools:
-    - {id: util.add, type: function, ref: tests.helpers:sample_tool}
-  groups:
-    - {id: essentials, include: [util.add]}
-
-agents_registry:
-  agents:
-    - {id: calc, name: calculator, model: gemini-2.0-flash, tools: [{use: 'registry:util.add'}]}
-  groups:
-    - {id: core, include: [calc]}
-```
-
-```python
-from agent_compose_kit.tools.builders import build_tool_registry_from_config
-from agent_compose_kit.agents.builders_registry import build_agent_registry_from_config
-
-tool_reg = build_tool_registry_from_config(cfg, base_dir=".")
-agent_reg = build_agent_registry_from_config(cfg, base_dir=".", provider_defaults=cfg.model_providers, tool_registry=tool_reg)
-root = agent_reg.get_group("core")[0]
-```
-
-## A2A remote agent by agent card
-```yaml
-a2a_clients:
-  - id: remote
-    agent_card_url: https://host:8000/a2a/hello/.well-known/agent-card.json
-
-agents:
-  - name: remote
-    kind: a2a_remote
-    client: remote
+cfg = compose.load_config_file(Path("./configs/app.yaml"))
+graph = compose.build_system_graph(cfg)
+fixes = compose.get_quick_fixes(cfg.model_dump())
+lock = compose.plan_lock(cfg, registry_resolves=lambda k, x, r: {}, alias_resolves=lambda a: {})
 ```
 

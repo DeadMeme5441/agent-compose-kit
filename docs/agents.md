@@ -4,52 +4,28 @@ title: Agents
 
 # Agents
 
-LlmAgent from string model
-```yaml
-agents:
-  - name: planner
-    model: gemini-2.0-flash
-    instruction: Plan tasks and call tools.
-```
+Variants:
+- `llm` — language-centric agent, can call tools and delegate
+- `workflow.sequential` — run sub_agents in order
+- `workflow.parallel` — fan-out to sub_agents
+- `workflow.loop` — iterate sub_agents up to `max_iterations` or early exit
+- `custom` — visualization-only declaration of a bespoke agent class
 
-LiteLLM model mapping with provider defaults
-```yaml
-model_providers:
-  openai:
-    api_key: ${OPENAI_API_KEY}
+LLM agent fields (subset):
+- `name`, `instruction` (required)
+- `model: string | alias://name`
+- `tools: Tool[]` (see Tools)
+- `sub_agents: (string | RegistryRef)[]`
+- `include_contents: 'default'|'none'`
+- `input_schema`, `output_schema`: dotted refs to Pydantic models
+- `output_key`: pass values to downstream steps
+- `planner`: `{ type: 'built_in', thinking_config: {...} } | { type: 'plan_react' }`
+- `code_executor`: dotted ref
+- callbacks: before/after model/tool
+- delegation flags: `disallow_transfer_to_parent`, `disallow_transfer_to_peers`
 
-agents:
-  - name: planner
-    model:
-      type: litellm
-      model: openai/gpt-4o-mini
-```
-
-Sub-agents & workflows
-```yaml
-agents:
-  - name: a
-    model: gemini-2.0-flash
-  - name: b
-    model: gemini-2.0-flash
-    sub_agents: [a]
-
-workflow: {type: sequential, nodes: [a, b]}
-```
-
-A2A remote agents (agent cards)
-```yaml
-a2a_clients:
-  - id: remote
-    agent_card_url: https://host:8000/a2a/hello/.well-known/agent-card.json
-
-agents:
-  - name: remote
-    kind: a2a_remote
-    client: remote
-```
-
-Notes
-- A2A prefers agent cards (AgentCard or URL). The legacy `url` field is still accepted but is treated as a card URL.
-- Advanced options (planner, code executor, structured schemas) are optional and guarded.
+Workflows:
+- Sequential connects consecutive sub_agents
+- Parallel fans out from the workflow node to each sub_agent
+- Loop connects loop → each sub_agent (iteration is a runtime concern)
 

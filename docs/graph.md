@@ -2,24 +2,28 @@
 title: Graph
 ---
 
-# Graph
+# Graph Builder
 
-Produce a simple system graph for UIs — no HTTP server required.
+`compose.build_system_graph(cfg)` returns `{ nodes, edges, hints }` describing the agent/tool topology.
 
-```python
-from pathlib import Path
-from agent_compose_kit.config.models import load_config_file
-from agent_compose_kit.graph.build import build_system_graph
+Nodes include:
+- `agent.llm`, `agent.workflow.sequential`, `agent.workflow.parallel`, `agent.workflow.loop`, `agent.custom`
+- `tool.function`, `tool.mcp`, `tool.openapi`, `tool.agent`
+- `tool.openapi_toolset`, `tool.mcp_toolset`, `tool.apihub_toolset`, `tool.builtin:<name>`
+- `agent.registry` for referenced registry agents
 
-cfg = load_config_file(Path("configs/app.yaml"))
-g = build_system_graph(cfg)
-print(g["nodes"], g["edges"])  # nodes/edges dicts
-```
+Edges:
+- `llm -> tool.*` (attached tools)
+- `llm -> agent.*` (sub_agents)
+- `sequential`: ordered flow `a -> b`
+- `parallel`: fan-out from the parallel node
+- `loop`: loop node -> each sub_agent
 
-Nodes
-- Inline agents and groups
-- Registry agents and groups (`registry:*` node ids)
-
-Edges
-- Sub-agent wiring, group membership, workflow order
+Hints:
+- LLM missing `model` and no `defaults.model_alias`
+- LLM with `output_schema` + tools (runtime disables tools)
+- `sequential` upstream LLM missing `output_key`
+- `planner: plan_react` combined with `output_schema` (conflict)
+- `thinking_config` under `generate_content_config` (suggest moving to `planner.built_in`)
+- Unknown sub_agent references
 

@@ -59,11 +59,11 @@ nav:
   - Overview: index.md
   - Installation: install.md
   - Configuration: config.md
-  - Services: services.md
-  - Tools: tools.md
   - Agents: agents.md
+  - Tools: tools.md
   - Registries: registries.md
   - Graph: graph.md
-  - Public API: public_api.md
+  - Quick Fixes: quickfixes.md
+  - Plan Lock: plan_lock.md
+  - Compose API: api.md
   - Examples: examples.md
-  - FAQ: faq.md
