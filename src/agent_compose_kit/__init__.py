@@ -1,8 +1,9 @@
 """Agent Compose Kit public API package.
 
-Note: The package exports are intentionally minimal during the S1 rewrite to
-avoid importing legacy submodules that rely on the previous config surface.
-Import specific modules directly as needed.
+Primary entrypoints live in `agent_compose_kit.compose` for a clean, runtime-free
+facade suitable for backend services and tooling.
 """
 
-__all__: list[str] = []
+from . import compose as compose  # re-export module for convenience
+
+__all__: list[str] = ["compose"]

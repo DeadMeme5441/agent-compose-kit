@@ -1,13 +1,6 @@
-"""
-Public API for consumers (e.g., external CLI) to build and interact with
-agent systems using this library without bringing in a CLI here.
+"""Retired experimental API for building/running live ADK systems.
 
-Surfaces:
-- SystemManager: load config, build registries, select root agent, build Runner
-- SessionManager: create/resume sessions
-- run_text: convenience async generator over Runner.run_async for a text input
-- cancel utilities: CancelRegistry (best-effort stub)
-- event utils: to_minimal_json for lightweight serialization (no JSONL writing)
+Retained under `_retired` to avoid runtime coupling in the core package.
 """
 
 from __future__ import annotations

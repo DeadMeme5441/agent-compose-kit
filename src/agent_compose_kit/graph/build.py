@@ -33,6 +33,10 @@ from ..config.models import (
     FunctionTool,
     McpTool,
     OpenApiTool,
+    OpenApiToolset,
+    McpToolset,
+    ApiHubToolset,
+    BuiltInTool,
 )
 
 
@@ -108,6 +112,14 @@ def build_system_graph(cfg: AppConfig) -> Dict[str, Any]:
                 kind = "tool.openapi"
             elif isinstance(t, AgentTool):
                 kind = "tool.agent"
+            elif isinstance(t, OpenApiToolset):
+                kind = "tool.openapi_toolset"
+            elif isinstance(t, McpToolset):
+                kind = "tool.mcp_toolset"
+            elif isinstance(t, ApiHubToolset):
+                kind = "tool.apihub_toolset"
+            elif isinstance(t, BuiltInTool):
+                kind = f"tool.builtin:{t.name}"
             if kind is None:
                 continue
             tid = _tool_node_id(nid, i, kind.split(".")[-1])
