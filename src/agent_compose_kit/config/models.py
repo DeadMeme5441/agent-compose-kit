@@ -214,6 +214,7 @@ class LlmAgentCfg(BaseModel):
         json_schema_extra={"markdownDescription": "string model id or alias://name"},
     )
     instruction: str = Field(..., json_schema_extra={"markdownDescription": "System instruction for the agent"})
+    # Tools & sub-agents
     tools: List[Tool] = Field(
         default_factory=list,
         json_schema_extra={
@@ -226,8 +227,51 @@ class LlmAgentCfg(BaseModel):
         },
     )
     sub_agents: List[Union[str, RegistryRef]] = Field(default_factory=list)
-    transfer: Dict[str, Any] = Field(default_factory=dict)
-    output_schema: Optional[Dict[str, Any]] = None
+    # Delegation/transfer controls (align to ADK booleans)
+    disallow_transfer_to_parent: bool = Field(
+        default=False,
+        json_schema_extra={"markdownDescription": "When true, LLM cannot transfer to parent"},
+    )
+    disallow_transfer_to_peers: bool = Field(
+        default=False,
+        json_schema_extra={"markdownDescription": "When true, LLM cannot transfer to peer agents"},
+    )
+    # Content & schemas
+    include_contents: Literal['default','none'] = Field(
+        default='default',
+        json_schema_extra={"markdownDescription": "default: include relevant history; none: no history"},
+    )
+    input_schema: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"markdownDescription": "Dotted ref to Pydantic BaseModel used when agent is a tool (module:Class)"},
+    )
+    output_schema: Optional[str] = Field(
+        default=None,
+        json_schema_extra={
+            "markdownDescription": "Dotted ref to Pydantic BaseModel for structured replies; disables tool use when set (runtime).",
+        },
+    )
+    output_key: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"markdownDescription": "Session state key to store the agent's output (used by downstream steps)"},
+    )
+    # Advanced
+    generate_content_config: Dict[str, Any] = Field(default_factory=dict)
+    planner: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"markdownDescription": "Dotted ref to planner object (advisory)"},
+    )
+    code_executor: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"markdownDescription": "Dotted ref to code executor (advisory)"},
+    )
+    # Callbacks (lists of dotted refs)
+    before_model_callbacks: List[str] = Field(default_factory=list)
+    after_model_callbacks: List[str] = Field(default_factory=list)
+    before_tool_callbacks: List[str] = Field(default_factory=list)
+    after_tool_callbacks: List[str] = Field(default_factory=list)
+    # Global instruction (root-only advisory)
+    global_instruction: Optional[str] = None
     
     @field_validator("instruction")
     @classmethod
@@ -249,6 +293,23 @@ class LlmAgentCfg(BaseModel):
             if isinstance(r, RegistryRef) and r.kind != "agent":
                 raise ValueError("llm sub_agents registry refs must be kind 'agent'")
         return self
+
+    @field_validator("input_schema", "output_schema")
+    @classmethod
+    def _validate_dotted_ref(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # Accept "module:Attr" or "module.sub.Mod:Attr" or "module.Class"
+        if ":" in v:
+            mod, attr = v.split(":", 1)
+            if not mod or not attr:
+                raise ValueError("schema dotted ref must be 'module:Attr'")
+        else:
+            # Allow simple module.Class form
+            parts = v.split(".")
+            if len(parts) < 2:
+                raise ValueError("schema dotted ref must include module and attribute")
+        return v
 
 
 class SequentialAgentCfg(BaseModel):
@@ -342,6 +403,13 @@ class CustomAgentCfg(BaseModel):
     name: str
     class_: str = Field(alias="class", json_schema_extra={"markdownDescription": "Import path to concrete agent class"})
     params: Dict[str, Any] = Field(default_factory=dict)
+    # Optional declaration for visualization only; runtime is free to wire differently
+    sub_agents: List[Union[str, RegistryRef]] = Field(
+        default_factory=list,
+        json_schema_extra={
+            "markdownDescription": "Optional sub-agents this custom agent orchestrates (for graph visualization only)",
+        },
+    )
 
     @field_validator("name")
     @classmethod
