@@ -156,26 +156,17 @@ def build_system_graph(cfg: AppConfig) -> Dict[str, Any]:
                     edges.append({"source": nid, "target": rid, "type": "flow"})
                 else:
                     hints.append(f"parallel '{ag.name}' includes unknown sub_agent '{s}'")
-            if ag.merge:
-                if isinstance(ag.merge, str) and ag.merge in local:
-                    edges.append({"source": nid, "target": local[ag.merge][0], "type": "merge"})
-                elif isinstance(ag.merge, RegistryRef):
-                    rid = _registry_agent_id(ag.merge)
-                    nodes.append({"id": rid, "label": ag.merge.key or "agent", "type": "agent.registry"})
-                    edges.append({"source": nid, "target": rid, "type": "merge"})
-                else:
-                    hints.append(f"parallel '{ag.name}' merge references unknown agent '{ag.merge}'")
         elif isinstance(ag, LoopAgentCfg):
-            # loop -> body
-            b = ag.body
-            if isinstance(b, str) and b in local:
-                edges.append({"source": nid, "target": local[b][0], "type": "flow"})
-            elif isinstance(b, RegistryRef):
-                rid = _registry_agent_id(b)
-                nodes.append({"id": rid, "label": b.key or "agent", "type": "agent.registry"})
-                edges.append({"source": nid, "target": rid, "type": "flow"})
-            else:
-                hints.append(f"loop '{ag.name}' references unknown body agent '{b}'")
+            # loop -> each sub_agent
+            for s in ag.sub_agents:
+                if isinstance(s, str) and s in local:
+                    edges.append({"source": nid, "target": local[s][0], "type": "flow"})
+                elif isinstance(s, RegistryRef):
+                    rid = _registry_agent_id(s)
+                    nodes.append({"id": rid, "label": s.key or "agent", "type": "agent.registry"})
+                    edges.append({"source": nid, "target": rid, "type": "flow"})
+                else:
+                    hints.append(f"loop '{ag.name}' includes unknown sub_agent '{s}'")
         else:
             # Custom: draw edges to declared sub_agents (visualization-only)
             subs = getattr(ag, "sub_agents", [])

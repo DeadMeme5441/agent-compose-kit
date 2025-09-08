@@ -34,18 +34,17 @@ def test_sequential_parallel_loop_edges_and_hints():
                 {"type": "llm", "name": "a", "instruction": "i"},
                 {"type": "llm", "name": "b", "instruction": "i"},
                 {"type": "workflow.sequential", "name": "seq", "sub_agents": ["a", "b"]},
-                {"type": "workflow.parallel", "name": "par", "sub_agents": ["a", "b"], "merge": "b"},
-                {"type": "workflow.loop", "name": "loop", "body": "a", "until": "iteration >= 2"},
+                {"type": "workflow.parallel", "name": "par", "sub_agents": ["a", "b"]},
+                {"type": "workflow.loop", "name": "loop", "sub_agents": ["a"], "max_iterations": 2},
             ],
         }
     )
     g = build_system_graph(cfg)
     # sequential: edge a -> b
     assert any(e for e in g["edges"] if e["type"] == "flow" and e["source"] == "agent:a" and e["target"] == "agent:b")
-    # parallel: par -> a and par -> b and par -> merge (b)
+    # parallel: par -> a and par -> b
     assert any(e for e in g["edges"] if e["type"] == "flow" and e["source"] == "agent:par" and e["target"] == "agent:a")
     assert any(e for e in g["edges"] if e["type"] == "flow" and e["source"] == "agent:par" and e["target"] == "agent:b")
-    assert any(e for e in g["edges"] if e["type"] == "merge" and e["source"] == "agent:par" and e["target"] == "agent:b")
     # loop: loop -> a
     assert any(e for e in g["edges"] if e["type"] == "flow" and e["source"] == "agent:loop" and e["target"] == "agent:a")
 

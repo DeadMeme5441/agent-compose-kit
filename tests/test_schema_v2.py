@@ -52,23 +52,6 @@ def test_workflow_agents_parse_and_require_fields():
 
 
 def test_loop_and_custom_agents_validation():
-    # loop must have non-empty until
-    with pytest.raises(ValueError):
-        load_config(
-            {
-                "schema_version": "0.1.0",
-                "metadata": {"name": "demo"},
-                "agents": [
-                    {
-                        "type": "workflow.loop",
-                        "name": "looper",
-                        "body": "a",
-                        "until": " ",
-                    }
-                ],
-            }
-        )
-
     # custom agent must include class
     with pytest.raises(ValueError):
         load_config(
@@ -91,9 +74,8 @@ def test_loop_and_custom_agents_validation():
                 {
                     "type": "workflow.loop",
                     "name": "looper",
-                    "body": "a",
-                    "until": "iteration >= 3",
-                    "max_iters": 5,
+                    "sub_agents": ["a"],
+                    "max_iterations": 5,
                 },
                 {"type": "custom", "name": "c", "class": "pkg.mod:Class", "params": {}},
             ],

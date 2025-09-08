@@ -319,6 +319,9 @@ class SequentialAgentCfg(BaseModel):
     sub_agents: List[Union[str, RegistryRef]] = Field(
         ..., json_schema_extra={"markdownDescription": "Run sub_agents in order"}
     )
+    parent_agent: Optional[str] = None  # advisory only
+    before_agent_callback: Optional[Union[str, List[str]]] = None
+    after_agent_callback: Optional[Union[str, List[str]]] = None
 
     @field_validator("sub_agents")
     @classmethod
@@ -342,9 +345,9 @@ class ParallelAgentCfg(BaseModel):
     sub_agents: List[Union[str, RegistryRef]] = Field(
         ..., json_schema_extra={"markdownDescription": "Run sub_agents in parallel"}
     )
-    merge: Optional[Union[str, RegistryRef]] = Field(
-        default=None, json_schema_extra={"markdownDescription": "Optional merger agent to combine results"}
-    )
+    parent_agent: Optional[str] = None  # advisory only
+    before_agent_callback: Optional[Union[str, List[str]]] = None
+    after_agent_callback: Optional[Union[str, List[str]]] = None
 
     @field_validator("sub_agents")
     @classmethod
@@ -360,30 +363,24 @@ class ParallelAgentCfg(BaseModel):
             raise ValueError("agent name must match ^[A-Za-z][-_A-Za-z0-9]{0,63}$")
         return v
 
-    @field_validator("merge")
-    @classmethod
-    def _merge_kind(cls, v: Optional[Union[str, RegistryRef]]):
-        if isinstance(v, RegistryRef) and v.kind != "agent":
-            raise ValueError("parallel 'merge' registry ref must be kind 'agent'")
-        return v
+    # no merge field in ADK parallel agent; synthesis is done by a downstream agent
 
 
 class LoopAgentCfg(BaseModel):
     type: Literal["workflow.loop"] = "workflow.loop"
     name: str
     description: Optional[str] = None
-    body: Union[str, RegistryRef] = Field(..., json_schema_extra={"markdownDescription": "Agent to repeat"})
-    until: str = Field(..., json_schema_extra={"markdownDescription": "Termination condition expression"})
-    max_iters: Optional[int] = None
+    sub_agents: List[Union[str, RegistryRef]] = Field(
+        ..., json_schema_extra={"markdownDescription": "Agents to run each iteration in order"}
+    )
+    max_iterations: Optional[int] = Field(
+        default=None, json_schema_extra={"markdownDescription": "Maximum loop iterations; stops earlier if a sub-agent escalates"}
+    )
+    parent_agent: Optional[str] = None  # advisory only
+    before_agent_callback: Optional[Union[str, List[str]]] = None
+    after_agent_callback: Optional[Union[str, List[str]]] = None
 
-    @field_validator("until")
-    @classmethod
-    def _non_empty_until(cls, v: str) -> str:
-        if not isinstance(v, str) or not v.strip():
-            raise ValueError("loop agent requires a non-empty 'until' condition")
-        return v
-
-    @field_validator("max_iters")
+    @field_validator("max_iterations")
     @classmethod
     def _positive_iters(cls, v: Optional[int]) -> Optional[int]:
         if v is not None and v <= 0:
