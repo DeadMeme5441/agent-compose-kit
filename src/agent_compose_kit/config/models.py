@@ -715,6 +715,17 @@ def load_config(yaml_or_dict: Union[str, Dict[str, Any]]) -> AppConfig:
 
 
 def load_config_file(path: Path) -> AppConfig:
+    """Load and validate an AppConfig from a YAML file.
+
+    Args:
+        path: Filesystem path to the YAML document.
+
+    Returns:
+        Parsed ``AppConfig`` instance.
+
+    Raises:
+        ValueError: When the file content fails schema validation.
+    """
     raw = Path(path).read_text(encoding="utf-8")
     return load_config(raw)
 

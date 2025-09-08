@@ -4,9 +4,17 @@ from typing import Any, Dict, List
 
 
 def validate_aliases(raw_cfg: Dict[str, Any]) -> Dict[str, List[str]]:
-    """Return unknown aliases referenced by defaults or agents.
+    """Validate that all referenced model aliases are declared.
 
-    Does not mutate; expects a raw dict (e.g., cfg.model_dump()).
+    Scans ``defaults.model_alias`` and any agent ``model`` values that start
+    with ``alias://`` and verifies they exist in ``model_aliases.aliases``.
+
+    Args:
+        raw_cfg: Raw configuration mapping (e.g., from ``AppConfig.model_dump()``).
+
+    Returns:
+        A dictionary ``{"unknown_aliases": [..]}`` listing any aliases used but
+        not declared. The function never mutates its input.
     """
     declared = set()
     reg = raw_cfg.get("model_aliases") or {}
@@ -27,4 +35,3 @@ def validate_aliases(raw_cfg: Dict[str, Any]) -> Dict[str, List[str]]:
 
     unknown = sorted(used - declared)
     return {"unknown_aliases": unknown}
-

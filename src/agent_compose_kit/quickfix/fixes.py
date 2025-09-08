@@ -8,6 +8,13 @@ import hashlib
 
 @dataclass
 class PatchOp:
+    """Single JSON-Pointer patch operation.
+
+    Attributes:
+        op: Operation kind: ``add`` | ``replace`` | ``remove``.
+        path: JSON Pointer to target location (e.g., ``/agents/0/model``).
+        value: Optional value for ``add``/``replace`` operations.
+    """
     op: str  # 'add' | 'replace' | 'remove'
     path: str  # JSON Pointer (e.g., /agents/0/model)
     value: Any | None = None
@@ -15,6 +22,14 @@ class PatchOp:
 
 @dataclass
 class QuickFix:
+    """A human-readable quick fix with machine-applicable patch ops.
+
+    Attributes:
+        id: Stable identifier for the fix.
+        title: Short, actionable label for UIs.
+        description: One-line description of the issue and remedy.
+        ops: List of patch operations to apply.
+    """
     id: str
     title: str
     description: str
@@ -22,6 +37,15 @@ class QuickFix:
 
 
 def _find_agent_index(raw_cfg: Dict[str, Any], agent_name: str) -> Optional[int]:
+    """Return index of an agent by name from a raw config dict.
+
+    Args:
+        raw_cfg: Raw configuration mapping.
+        agent_name: Agent ``name`` to search for.
+
+    Returns:
+        Integer index when found; otherwise ``None``.
+    """
     agents = list(raw_cfg.get("agents") or [])
     for i, a in enumerate(agents):
         if isinstance(a, dict) and a.get("name") == agent_name:
@@ -30,10 +54,20 @@ def _find_agent_index(raw_cfg: Dict[str, Any], agent_name: str) -> Optional[int]
 
 
 def _agent_names(raw_cfg: Dict[str, Any]) -> List[str]:
+    """Return all declared agent names from a raw config dict."""
     return [a.get("name") for a in (raw_cfg.get("agents") or []) if isinstance(a, dict) and a.get("name")]
 
 
 def _closest(name: str, choices: Sequence[str]) -> Optional[str]:
+    """Return closest string match using difflib or ``None``.
+
+    Args:
+        name: Input string to match.
+        choices: Sequence of candidate strings.
+
+    Returns:
+        Best match above threshold, or ``None`` when no suitable match exists.
+    """
     matches = difflib.get_close_matches(name, choices, n=1, cutoff=0.6)
     return matches[0] if matches else None
 

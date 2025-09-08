@@ -33,13 +33,31 @@ class LockfilePlan:
 
 
 def _to_raw(cfg: Any) -> Dict[str, Any]:
+    """Return a plain dict for a Pydantic model or mapping.
+
+    Args:
+        cfg: ``AppConfig`` instance or raw mapping.
+
+    Returns:
+        A plain Python ``dict`` suitable for dependency scanning.
+    """
     if hasattr(cfg, "model_dump"):
         return cfg.model_dump()  # type: ignore[attr-defined]
     return dict(cfg)
 
 
 def _parse_registry_ref(value: str) -> Tuple[str, str, str]:
-    # value like registry://{kind}/{key}@{ver|range|latest}
+    """Parse a registry ref into components.
+
+    Args:
+        value: Reference like ``registry://{kind}/{key}@{version|range|latest}``.
+
+    Returns:
+        Tuple ``(kind, key, range)`` with defaults applied.
+
+    Raises:
+        ValueError: If the value is not a registry ref or is malformed.
+    """
     if not isinstance(value, str) or not value.startswith("registry://"):
         raise ValueError("invalid registry ref")
     rest = value[len("registry://") :]

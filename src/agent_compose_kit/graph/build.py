@@ -41,19 +41,56 @@ from ..config.models import (
 
 
 def _agent_node_id(a: Union[LlmAgentCfg, SequentialAgentCfg, ParallelAgentCfg, LoopAgentCfg]) -> str:
+    """Return canonical node id for an agent.
+
+    Args:
+        a: Agent configuration instance.
+
+    Returns:
+        Canonical graph node id for the agent (e.g., ``agent:planner``).
+    """
     return f"agent:{a.name}"
 
 
 def _registry_agent_id(ref: RegistryRef) -> str:
+    """Return graph node id for a referenced registry agent.
+
+    Args:
+        ref: Registry reference of kind ``agent``.
+
+    Returns:
+        Registry node id (e.g., ``registry:agent:helper@1.0.0``).
+    """
     v = ref.version or "latest"
     return f"registry:agent:{ref.key}@{v}"
 
 
 def _tool_node_id(owner_id: str, idx: int, kind: str) -> str:
+    """Return canonical node id for a tool attached to an agent.
+
+    Args:
+        owner_id: Graph node id of the owning agent.
+        idx: 0-based index of the tool on the agent.
+        kind: Short kind label (e.g., ``function``, ``openapi``).
+
+    Returns:
+        Canonical tool node id (e.g., ``agent:planner:tool:0:function``).
+    """
     return f"{owner_id}:tool:{idx}:{kind}"
 
 
 def build_system_graph(cfg: AppConfig) -> Dict[str, Any]:
+    """Build a deterministic ADK-aware graph from a config.
+
+    Args:
+        cfg: Parsed ``AppConfig`` instance.
+
+    Returns:
+        A dictionary with keys:
+        - ``nodes``: list of node dicts {id,label,type,meta?}
+        - ``edges``: list of edge dicts {source,target,type}
+        - ``hints``: list of advisory strings
+    """
     nodes: List[Dict[str, Any]] = []
     edges: List[Dict[str, Any]] = []
     hints: List[str] = []
