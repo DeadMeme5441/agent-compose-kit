@@ -40,20 +40,24 @@ plugins:
         - index.md: What this package is and when to use it
         Installation:
         - install.md: Install with uv/pip and optional extras
-        Configuration & Services:
-        - config.md: Configuration schema and env interpolation
-        - services.md: Session/Artifact/Memory backends and URIs
-        Tools & Agents:
-        - tools.md: Function/MCP/OpenAPI tools and usage
-        - agents.md: Models, sub-agents, workflows, A2A (agent cards)
+        Configuration:
+        - config.md: Configuration schema and validation
+        Agents:
+        - agents.md: LLM/workflow/custom agents and fields
+        Tools:
+        - tools.md: Function/MCP/OpenAPI/toolsets/built-ins
         Registries:
-        - registries.md: Tool/MCP/OpenAPI/Agent registries and groups
-        Graph & Public API:
-        - graph.md: Build a system graph (nodes/edges)
-        - public_api.md: SystemManager/SessionManager/run_text
-        Examples & FAQ:
-        - examples.md: End-to-end examples
-        - faq.md: Common questions
+        - registries.md: Model aliases + declarative agent/tool registries
+        Graph:
+        - graph.md: Build a system graph (nodes/edges) with hints
+        Quick Fixes:
+        - quickfixes.md: Patch suggestions and how to apply
+        Plan Lock:
+        - plan_lock.md: Pin external refs and aliases (offline)
+        Compose API:
+        - api.md: Programmatic facade functions
+        Examples:
+        - examples.md: End-to-end usage snippets
 docs_dir: docs
 nav:
   - Overview: index.md
