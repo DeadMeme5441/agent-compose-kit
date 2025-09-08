@@ -59,7 +59,16 @@ def build_system_graph(cfg: AppConfig) -> Dict[str, Any]:
     for ag in cfg.agents:
         if isinstance(ag, LlmAgentCfg):
             nid = _agent_node_id(ag)
-            meta = {"output_key": ag.output_key} if getattr(ag, "output_key", None) else {}
+            meta = {}
+            if getattr(ag, "output_key", None):
+                meta["output_key"] = ag.output_key
+            # planner meta
+            p = getattr(ag, "planner", None)
+            if p is not None:
+                try:
+                    meta["planner"] = getattr(p, 'type', None)
+                except Exception:
+                    pass
             nodes.append({"id": nid, "label": ag.name, "type": "agent.llm", "meta": meta})
             local[ag.name] = (nid, ag)
         elif isinstance(ag, SequentialAgentCfg):
@@ -107,6 +116,21 @@ def build_system_graph(cfg: AppConfig) -> Dict[str, Any]:
         # Hint when output_schema is set and tools present (runtime disables tools per ADK)
         if getattr(ag, "output_schema", None) and ag.tools:
             hints.append(f"agent '{ag.name}' has output_schema set; tools will be disabled at runtime")
+        # Planner-specific hints
+        if getattr(ag, 'planner', None) is not None:
+            p = ag.planner
+            try:
+                ptype = getattr(p, 'type', None)
+                if ptype == 'built_in':
+                    # If generate_content_config contains thinking_config, suggest moving to planner
+                    gcc = getattr(ag, 'generate_content_config', {}) or {}
+                    if isinstance(gcc, dict) and 'thinking_config' in gcc:
+                        hints.append(f"agent '{ag.name}' has thinking_config in generate_content_config; move it to planner.built_in.thinking_config")
+                elif ptype == 'plan_react':
+                    if getattr(ag, 'output_schema', None):
+                        hints.append(f"agent '{ag.name}' uses plan_react planner but has output_schema; this disables tools expected by Plan-Re-Act")
+            except Exception:
+                pass
         # Sub-agents
         for ref in ag.sub_agents:
             if isinstance(ref, str):

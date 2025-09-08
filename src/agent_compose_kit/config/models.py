@@ -119,6 +119,31 @@ class ToolAuthConfig(BaseModel):
         return v
 
 
+# =====================
+# Planners (attachable)
+# =====================
+
+
+class PlannerBuiltIn(BaseModel):
+    type: Literal['built_in'] = 'built_in'
+    thinking_config: Dict[str, Any] = Field(
+        ..., json_schema_extra={"markdownDescription": "google.genai.types.ThinkingConfig payload (passed to runtime)"}
+    )
+
+    @model_validator(mode='after')
+    def _non_empty_tc(self) -> 'PlannerBuiltIn':
+        if not isinstance(self.thinking_config, dict) or not self.thinking_config:
+            raise ValueError('planner.built_in requires non-empty thinking_config')
+        return self
+
+
+class PlannerPlanReAct(BaseModel):
+    type: Literal['plan_react'] = 'plan_react'
+    options: Dict[str, Any] = Field(default_factory=dict)
+
+
+Planner = Union[PlannerBuiltIn, PlannerPlanReAct]
+
 class McpTool(BaseModel):
     kind: Literal["mcp"] = Field(
         default="mcp",
@@ -257,10 +282,7 @@ class LlmAgentCfg(BaseModel):
     )
     # Advanced
     generate_content_config: Dict[str, Any] = Field(default_factory=dict)
-    planner: Optional[str] = Field(
-        default=None,
-        json_schema_extra={"markdownDescription": "Dotted ref to planner object (advisory)"},
-    )
+    planner: Optional[Planner] = Field(default=None)
     code_executor: Optional[str] = Field(
         default=None,
         json_schema_extra={"markdownDescription": "Dotted ref to code executor (advisory)"},

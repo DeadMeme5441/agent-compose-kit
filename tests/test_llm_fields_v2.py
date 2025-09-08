@@ -19,7 +19,8 @@ def test_llm_agent_extended_fields_parse():
                     "disallow_transfer_to_parent": True,
                     "disallow_transfer_to_peers": False,
                     "generate_content_config": {"temperature": 0.2},
-                    "planner": "pkg.plan:Planner",
+                    # planner optional: provide plan_react by default
+                    "planner": {"type": "plan_react"},
                     "code_executor": "pkg.exec:Exec",
                     "before_model_callbacks": ["pkg.cb:before"],
                     "after_model_callbacks": ["pkg.cb:after"],
@@ -50,4 +51,3 @@ def test_hints_output_schema_disables_tools_and_missing_output_key_in_seq():
     g = build_system_graph(cfg)
     assert any("output_schema" in h for h in g["hints"])  # type: ignore[index]
     assert any("no output_key" in h for h in g["hints"])  # type: ignore[index]
-
