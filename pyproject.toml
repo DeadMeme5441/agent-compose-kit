@@ -1,6 +1,6 @@
 [project]
 name = "agent-compose-kit"
-version = "0.2.1"
+version = "0.5.0"
 description = "Core library to compose, validate, and run ADK agent systems from YAML."
 readme = "README.md"
 requires-python = ">=3.12"
